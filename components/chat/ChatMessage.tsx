@@ -1,40 +1,22 @@
+"use client";
+
 import { cn } from "@/lib/utils";
-import type { ChatMessage as ChatMsg } from "@/lib/useSession";
+import type { UIMessage } from "ai";
 import { Zap, User, Wrench } from "lucide-react";
 
 interface Props {
-  message: ChatMsg;
+  message: UIMessage;
 }
 
-const roleConfig = {
-  assistant: {
-    icon: Zap,
-    label: "Claw",
-    iconClass: "text-[--accent] bg-[--accent-dim]",
-    bubbleClass: "bg-[--surface] border border-[--border]",
-  },
-  user: {
-    icon: User,
-    label: "You",
-    iconClass: "text-[--foreground] bg-[--surface-raised]",
-    bubbleClass: "bg-[--surface-raised] border border-[--border-subtle]",
-  },
-  tool: {
-    icon: Wrench,
-    label: "Tool",
-    iconClass: "text-[--muted] bg-[--surface-raised]",
-    bubbleClass: "bg-transparent border border-[--border-subtle]",
-  },
-  system: {
-    icon: Zap,
-    label: "System",
-    iconClass: "text-[--muted] bg-[--surface-raised]",
-    bubbleClass: "bg-transparent border border-[--border-subtle]",
-  },
-} as const;
+function getMessageText(msg: UIMessage): string {
+  if (!msg.parts || !Array.isArray(msg.parts)) return "";
+  return msg.parts
+    .filter((p): p is { type: "text"; text: string } => p.type === "text")
+    .map((p) => p.text)
+    .join("");
+}
 
 function formatText(text: string): React.ReactNode {
-  // Simple inline code + code blocks
   const lines = text.split("\n");
   const elements: React.ReactNode[] = [];
   let inCodeBlock = false;
@@ -61,11 +43,11 @@ function formatText(text: string): React.ReactNode {
       } else {
         inCodeBlock = true;
         codeLang = line.slice(3).trim();
+        void codeLang;
       }
     } else if (inCodeBlock) {
       codeLines.push(line);
     } else {
-      // Inline code
       const parts = line.split(/(`[^`]+`)/g);
       const rendered = parts.map((part, j) =>
         part.startsWith("`") && part.endsWith("`") ? (
@@ -80,14 +62,13 @@ function formatText(text: string): React.ReactNode {
         )
       );
       elements.push(
-        <span key={`line-${i}`} className="block">
+        <span key={`line-${i}`} className="block min-h-[1em]">
           {rendered}
         </span>
       );
     }
   }
 
-  // Flush unclosed code block
   if (inCodeBlock && codeLines.length > 0) {
     elements.push(
       <pre
@@ -105,38 +86,38 @@ function formatText(text: string): React.ReactNode {
 }
 
 export function ChatMessageItem({ message }: Props) {
-  const role = message.role in roleConfig ? message.role : "system";
-  const cfg = roleConfig[role as keyof typeof roleConfig];
-  const Icon = cfg.icon;
   const isUser = message.role === "user";
+  const text = getMessageText(message);
 
   return (
-    <div
-      className={cn(
-        "flex gap-3 px-4 py-3",
-        isUser && "flex-row-reverse"
-      )}
-    >
+    <div className={cn("flex gap-3 px-4 py-3", isUser && "flex-row-reverse")}>
       {/* Avatar */}
       <div
         className={cn(
           "flex items-center justify-center w-7 h-7 rounded-full shrink-0 mt-0.5",
-          cfg.iconClass
+          isUser
+            ? "bg-[--surface-raised] text-[--foreground]"
+            : "bg-[--accent-dim] text-[--accent]"
         )}
       >
-        <Icon className="w-3.5 h-3.5" />
+        {isUser ? (
+          <User className="w-3.5 h-3.5" />
+        ) : (
+          <Zap className="w-3.5 h-3.5" />
+        )}
       </div>
 
       {/* Bubble */}
       <div
         className={cn(
           "rounded-xl px-3.5 py-2.5 text-sm leading-relaxed max-w-[80%]",
-          cfg.bubbleClass,
-          isUser ? "text-right" : "text-left"
+          isUser
+            ? "bg-[--surface-raised] border border-[--border-subtle]"
+            : "bg-[--surface] border border-[--border]"
         )}
       >
         <div className="prose-chat text-[--foreground]">
-          {formatText(message.text)}
+          {formatText(text)}
         </div>
         <div
           className={cn(
@@ -144,7 +125,7 @@ export function ChatMessageItem({ message }: Props) {
             isUser ? "text-right" : "text-left"
           )}
         >
-          {cfg.label}
+          {isUser ? "You" : "Claw"}
         </div>
       </div>
     </div>
@@ -167,6 +148,19 @@ export function TypingIndicator() {
             />
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+export function ToolCallIndicator({ name }: { name: string }) {
+  return (
+    <div className="flex gap-3 px-4 py-2">
+      <div className="flex items-center justify-center w-7 h-7 rounded-full shrink-0 mt-0.5 bg-[--surface-raised] text-[--muted]">
+        <Wrench className="w-3.5 h-3.5" />
+      </div>
+      <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[--border] bg-[--surface-raised] text-xs text-[--muted] font-mono">
+        Running <span className="text-[--accent]">{name}</span>…
       </div>
     </div>
   );
