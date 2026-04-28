@@ -13,12 +13,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Claw Code — AI Coding Assistant",
-  description: "Web interface for Claw Code — an open-source AI coding agent powered by Claude.",
+  title: "JP Code v1.6.1 — AI Coding Assistant",
+  description:
+    "JP Code — advanced AI coding agent powered by Claude. Write, debug, review and ship code faster.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0a0a",
+  themeColor: "#000000",
   width: "device-width",
   initialScale: 1,
 };
@@ -31,9 +32,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      data-theme="matrix"
       className={`${geistSans.variable} ${geistMono.variable} bg-background h-full antialiased`}
     >
-      <body className="h-full flex flex-col font-sans">{children}</body>
+      <body className="h-full flex flex-col font-mono">{children}</body>
     </html>
   );
 }

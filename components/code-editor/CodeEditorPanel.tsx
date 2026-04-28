@@ -328,8 +328,8 @@ export function CodeEditorPanel() {
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-[--border] bg-[--surface] shrink-0">
           <div className="flex items-center gap-2">
-            <Code2 className="w-4 h-4 text-[--accent]" />
-            <span className="text-sm font-medium text-[--foreground]">Claw Code</span>
+            <Code2 className="w-3.5 h-3.5 text-[--accent]" />
+            <span className="text-xs font-mono font-semibold text-[--foreground]">JP_CODE_EDITOR</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-mono text-[--muted]">claude-opus-4-6</span>
@@ -349,15 +349,15 @@ export function CodeEditorPanel() {
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
               <Zap className="w-8 h-8 text-[--accent]" />
-              <p className="text-sm text-[--muted] leading-relaxed">
-                Describe what you want to build and Claw will generate the code.
+              <p className="text-xs font-mono text-[--muted] leading-relaxed">
+                {'> describe what to build,'}<br/>{'> JP Code generates the code.'}
               </p>
               <div className="flex flex-col gap-2 w-full">
                 {[
                   "Create a Rust HTTP server with Axum",
                   "Write a TypeScript React hook for fetching data",
                   "Build a Python FastAPI with JWT auth",
-                  "Implement a binary search tree in Rust",
+                  "Implement a port scanner in Python",
                 ].map((p) => (
                   <button
                     key={p}

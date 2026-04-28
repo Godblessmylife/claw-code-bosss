@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Settings, Server, Key, Info, CheckCircle2, XCircle } from "lucide-react";
+import { Settings, Server, Key, Info, CheckCircle2, XCircle, Terminal } from "lucide-react";
 
 const DEFAULT_API_URL =
   process.env.NEXT_PUBLIC_CLAW_API_URL ?? "http://localhost:3001";
@@ -28,28 +28,28 @@ export default function SettingsPage() {
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-[--background]">
       {/* Header */}
-      <div className="flex items-center gap-3 px-6 py-4 border-b border-[--border] bg-[--surface] shrink-0">
-        <Settings className="w-5 h-5 text-[--accent]" />
-        <h1 className="text-base font-semibold text-[--foreground]">Settings</h1>
+      <div className="flex items-center gap-3 px-6 py-3 border-b border-[--border] bg-[--surface] shrink-0">
+        <Settings className="w-4 h-4 text-[--accent]" />
+        <h1 className="text-xs font-mono font-bold text-[--foreground] tracking-wider">SYS_CONFIG</h1>
       </div>
 
       <div className="px-6 py-6 space-y-6 max-w-xl">
         {/* Backend connection */}
         <section>
           <div className="flex items-center gap-2 mb-3">
-            <Server className="w-4 h-4 text-[--muted]" />
-            <h2 className="text-sm font-semibold text-[--foreground]">Backend Connection</h2>
+            <Server className="w-3.5 h-3.5 text-[--muted]" />
+            <h2 className="text-xs font-mono font-semibold text-[--foreground]">{'// backend_connection'}</h2>
           </div>
-          <div className="rounded-xl border border-[--border] bg-[--surface] p-4 space-y-3">
+          <div className="rounded border border-[--border] bg-[--surface] p-4 space-y-3">
             <div>
-              <label className="block text-xs text-[--muted] mb-1.5">
-                Claw API URL
+              <label className="block text-[10px] font-mono text-[--muted] mb-1.5 uppercase tracking-wider">
+                API Endpoint
               </label>
               <input
                 type="text"
                 value={apiUrl}
                 onChange={(e) => setApiUrl(e.target.value)}
-                className="w-full bg-[--surface-raised] border border-[--border] rounded-lg px-3 py-2 text-sm font-mono text-[--foreground] outline-none focus:border-[--accent] transition-colors"
+                className="w-full bg-[--background] border border-[--border] rounded px-3 py-2 text-xs font-mono text-[--foreground] outline-none focus:border-[--accent] transition-colors"
                 placeholder="http://localhost:3001"
               />
             </div>
@@ -57,24 +57,25 @@ export default function SettingsPage() {
               <button
                 onClick={testConnection}
                 disabled={testing}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[--surface-raised] border border-[--border] text-xs text-[--foreground] hover:border-[--accent] hover:text-[--accent] transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-[--border] bg-[--surface-raised] text-[10px] font-mono text-[--foreground] hover:border-[--accent] hover:text-[--accent] transition-colors disabled:opacity-50"
               >
-                {testing ? "Testing…" : "Test connection"}
+                <Terminal className="w-3 h-3" />
+                {testing ? "TESTING..." : "TEST_CONN"}
               </button>
               {status === "ok" && (
-                <span className="flex items-center gap-1 text-xs text-[--success]">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Connected
+                <span className="flex items-center gap-1 text-[10px] font-mono text-[--success]">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> CONNECTED
                 </span>
               )}
               {status === "error" && (
-                <span className="flex items-center gap-1 text-xs text-red-400">
-                  <XCircle className="w-3.5 h-3.5" /> Unreachable
+                <span className="flex items-center gap-1 text-[10px] font-mono text-[--destructive]">
+                  <XCircle className="w-3.5 h-3.5" /> UNREACHABLE
                 </span>
               )}
             </div>
-            <p className="text-xs text-[--muted] leading-relaxed">
-              The Rust axum server must be running on this address.
-              Start it with <code className="font-mono text-[--accent] text-[11px] bg-[--surface-raised] px-1 rounded">cd rust && cargo run -p claw-cli</code>
+            <p className="text-[10px] font-mono text-[--muted] leading-relaxed">
+              {'> Rust axum server must be running.'}<br />
+              {'> Start: '}<code className="text-[--accent]">cd rust && cargo run -p claw-cli</code>
             </p>
           </div>
         </section>
@@ -82,26 +83,26 @@ export default function SettingsPage() {
         {/* API Key */}
         <section>
           <div className="flex items-center gap-2 mb-3">
-            <Key className="w-4 h-4 text-[--muted]" />
-            <h2 className="text-sm font-semibold text-[--foreground]">Anthropic API Key</h2>
+            <Key className="w-3.5 h-3.5 text-[--muted]" />
+            <h2 className="text-xs font-mono font-semibold text-[--foreground]">{'// anthropic_api_key'}</h2>
           </div>
-          <div className="rounded-xl border border-[--border] bg-[--surface] p-4 space-y-3">
+          <div className="rounded border border-[--border] bg-[--surface] p-4 space-y-3">
             <div>
-              <label className="block text-xs text-[--muted] mb-1.5">
-                API Key <span className="text-[--muted]">(stored locally)</span>
+              <label className="block text-[10px] font-mono text-[--muted] mb-1.5 uppercase tracking-wider">
+                Secret Key
               </label>
               <input
                 type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                className="w-full bg-[--surface-raised] border border-[--border] rounded-lg px-3 py-2 text-sm font-mono text-[--foreground] outline-none focus:border-[--accent] transition-colors"
-                placeholder="sk-ant-…"
+                className="w-full bg-[--background] border border-[--border] rounded px-3 py-2 text-xs font-mono text-[--foreground] outline-none focus:border-[--accent] transition-colors"
+                placeholder="sk-ant-..."
               />
             </div>
-            <p className="text-xs text-[--muted] leading-relaxed">
-              Used by the Rust backend. Alternatively, set the
-              <code className="font-mono text-[--accent] text-[11px] bg-[--surface-raised] px-1 mx-0.5 rounded">ANTHROPIC_API_KEY</code>
-              environment variable before starting the server.
+            <p className="text-[10px] font-mono text-[--muted] leading-relaxed">
+              {'> Or set env var: '}
+              <code className="text-[--accent]">ANTHROPIC_API_KEY</code>
+              {' before starting the server.'}
             </p>
           </div>
         </section>
@@ -109,26 +110,23 @@ export default function SettingsPage() {
         {/* About */}
         <section>
           <div className="flex items-center gap-2 mb-3">
-            <Info className="w-4 h-4 text-[--muted]" />
-            <h2 className="text-sm font-semibold text-[--foreground]">About</h2>
+            <Info className="w-3.5 h-3.5 text-[--muted]" />
+            <h2 className="text-xs font-mono font-semibold text-[--foreground]">{'// system_info'}</h2>
           </div>
-          <div className="rounded-xl border border-[--border] bg-[--surface] p-4 space-y-2 text-xs text-[--muted] font-mono">
-            <div className="flex justify-between">
-              <span>Claw Code Web</span>
-              <span className="text-[--foreground]">v0.1.0</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Next.js</span>
-              <span className="text-[--foreground]">16</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Backend</span>
-              <span className="text-[--foreground]">Rust / axum</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Model</span>
-              <span className="text-[--foreground]">claude-opus-4-6</span>
-            </div>
+          <div className="rounded border border-[--border] bg-[--surface] p-4 space-y-2 text-[11px] font-mono">
+            {[
+              ["product",   "JP Code"],
+              ["version",   "1.6.1"],
+              ["framework", "Next.js 16"],
+              ["backend",   "Rust / axum"],
+              ["model",     "claude-opus-4-6"],
+              ["status",    "ONLINE"],
+            ].map(([k, v]) => (
+              <div key={k} className="flex justify-between border-b border-[--border-subtle] pb-1.5 last:border-0 last:pb-0">
+                <span className="text-[--muted]">{k}</span>
+                <span className="text-[--accent]">{v}</span>
+              </div>
+            ))}
           </div>
         </section>
       </div>

@@ -121,11 +121,11 @@ export function ChatMessageItem({ message }: Props) {
         </div>
         <div
           className={cn(
-            "text-[10px] mt-1.5 text-[--muted]",
+            "text-[10px] mt-1.5 text-[--muted] font-mono",
             isUser ? "text-right" : "text-left"
           )}
         >
-          {isUser ? "You" : "Claw"}
+          {isUser ? "> you" : "> jp_code"}
         </div>
       </div>
     </div>

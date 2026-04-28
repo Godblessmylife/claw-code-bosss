@@ -5,7 +5,14 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { ChatMessageItem, TypingIndicator } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
-import { Zap, MessageSquare } from "lucide-react";
+import { Shield, MessageSquare, Terminal } from "lucide-react";
+
+const QUICK_PROMPTS = [
+  "Write a Rust HTTP server with Axum",
+  "Explain async/await in Rust",
+  "Review my code for security issues",
+  "Write unit tests for this function",
+];
 
 export function ChatPanel() {
   const { messages, sendMessage, status, error } = useChat({
@@ -22,45 +29,42 @@ export function ChatPanel() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Topbar */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[--border] bg-[--surface] shrink-0">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-[--border] bg-[--surface] shrink-0">
         <div className="flex items-center gap-2">
-          <MessageSquare className="w-4 h-4 text-[--muted]" />
-          <span className="text-sm font-medium text-[--foreground]">AI Chat</span>
+          <MessageSquare className="w-3.5 h-3.5 text-[--muted]" />
+          <span className="text-xs font-mono font-semibold text-[--foreground]">AI_CHAT</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-[--success] animate-pulse" />
-          <span className="text-[11px] font-mono text-[--success]">claude-opus-4-6</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-[--accent] animate-pulse" />
+          <span className="text-[10px] font-mono text-[--muted]">claude-opus-4-6</span>
         </div>
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto">
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-4 px-8 text-center">
-            <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-[--accent-dim] border border-[--accent]/20">
-              <Zap className="w-7 h-7 text-[--accent]" />
+          <div className="flex flex-col items-center justify-center h-full gap-5 px-8 text-center">
+            <div className="relative flex items-center justify-center w-16 h-16 rounded border border-[--accent]/40 bg-[--accent-dim]">
+              <Shield className="w-8 h-8 text-[--accent]" />
+              <span className="absolute -top-2 -right-2 flex items-center justify-center w-5 h-5 rounded-full bg-[--accent] text-black text-[9px] font-bold font-mono">AI</span>
             </div>
             <div>
-              <h2 className="text-base font-semibold text-[--foreground] mb-1">
-                Welcome to Claw Code
+              <h2 className="text-sm font-mono font-bold text-[--accent] mb-1 terminal-cursor">
+                JP_CODE_READY
               </h2>
-              <p className="text-sm text-[--muted] leading-relaxed max-w-sm">
-                An open-source AI coding agent powered by Claude. Ask anything
-                about code — write, review, debug, explain.
+              <p className="text-xs font-mono text-[--muted] leading-relaxed max-w-sm">
+                {'> AI coding assistant online.'}<br />
+                {'> Ask anything about code.'}
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-2 w-full max-w-sm">
-              {[
-                "Write a Rust HTTP server",
-                "Explain async/await in Rust",
-                "Review my code for bugs",
-                "Write unit tests for this function",
-              ].map((prompt) => (
+            <div className="grid grid-cols-1 gap-1.5 w-full max-w-sm">
+              {QUICK_PROMPTS.map((prompt) => (
                 <button
                   key={prompt}
                   onClick={() => sendMessage({ text: prompt })}
-                  className="text-left px-3 py-2 rounded-lg border border-[--border] bg-[--surface] hover:border-[--accent] hover:bg-[--accent-dim] transition-colors text-xs text-[--muted] hover:text-[--accent]"
+                  className="flex items-center gap-2 text-left px-3 py-2 rounded border border-[--border] bg-[--surface] hover:border-[--accent] hover:bg-[--accent-dim] transition-colors text-[11px] font-mono text-[--muted] hover:text-[--accent]"
                 >
+                  <Terminal className="w-3 h-3 shrink-0" />
                   {prompt}
                 </button>
               ))}
@@ -79,8 +83,8 @@ export function ChatPanel() {
 
       {/* Error banner */}
       {error && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-red-950/30 border-t border-red-900/40 text-xs text-red-400 shrink-0">
-          <span>{error.message}</span>
+        <div className="flex items-center gap-2 px-4 py-2 bg-red-950/30 border-t border-red-900/40 text-[11px] font-mono text-red-400 shrink-0">
+          <span>{'> ERROR: '}{error.message}</span>
         </div>
       )}
 
@@ -88,7 +92,7 @@ export function ChatPanel() {
       <ChatInput
         onSend={(text) => sendMessage({ text })}
         disabled={isStreaming}
-        placeholder="Ask Claw anything… (Enter to send, Shift+Enter for newline)"
+        placeholder="> enter command..."
       />
     </div>
   );

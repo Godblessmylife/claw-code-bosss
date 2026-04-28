@@ -77,8 +77,8 @@ export function ChatInput({ onSend, disabled, placeholder }: Props) {
           )}
         </button>
       </div>
-      <p className="text-[10px] text-[--muted] mt-1.5 px-1">
-        Connected to Claw Code Rust backend · Shift+Enter for newline
+      <p className="text-[10px] font-mono text-[--muted] mt-1.5 px-1">
+        {'> JP Code AI · Shift+Enter for newline'}
       </p>
     </div>
   );
