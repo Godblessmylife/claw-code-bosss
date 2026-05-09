@@ -39,7 +39,7 @@ export function ChatInput({ onSend, disabled, placeholder }: Props) {
   };
 
   return (
-    <div className="px-4 py-3 border-t border-[--border] bg-[--surface]">
+    <div className="px-3 md:px-4 py-3 border-t border-[--border] bg-[--surface]">
       <div
         className={cn(
           "flex items-end gap-2 rounded-xl border bg-[--surface-raised] px-3 py-2 transition-colors",
@@ -56,14 +56,14 @@ export function ChatInput({ onSend, disabled, placeholder }: Props) {
           onInput={handleInput}
           disabled={disabled}
           rows={1}
-          placeholder={placeholder ?? "> ask JP Code anything… (Enter to send, Shift+Enter for newline)"}
-          className="flex-1 resize-none bg-transparent text-sm text-[--foreground] placeholder:text-[--muted] outline-none leading-relaxed min-h-[24px] max-h-[200px] py-0.5 font-mono"
+          placeholder={placeholder ?? "> ask anything…"}
+          className="flex-1 resize-none bg-transparent text-sm text-[--foreground] placeholder:text-[--muted] outline-none leading-relaxed min-h-[24px] max-h-[160px] py-0.5 font-mono"
         />
         <button
           onClick={submit}
           disabled={disabled || !value.trim()}
           className={cn(
-            "flex items-center justify-center w-8 h-8 rounded-lg transition-colors shrink-0",
+            "flex items-center justify-center w-9 h-9 rounded-lg transition-colors shrink-0 active:scale-95",
             value.trim() && !disabled
               ? "bg-[--accent] hover:bg-[--accent-hover]"
               : "bg-[--border] text-[--muted] cursor-not-allowed"
@@ -72,14 +72,14 @@ export function ChatInput({ onSend, disabled, placeholder }: Props) {
           aria-label="Send message"
         >
           {disabled ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
-            <Send className="w-3.5 h-3.5" />
+            <Send className="w-4 h-4" />
           )}
         </button>
       </div>
-      <p className="text-[10px] font-mono text-[--muted] mt-1.5 px-1">
-        {'> JP Code AI · Shift+Enter for newline'}
+      <p className="hidden md:block text-[10px] font-mono text-[--muted] mt-1.5 px-1">
+        {">"} JP Code AI &middot; Shift+Enter for newline
       </p>
     </div>
   );

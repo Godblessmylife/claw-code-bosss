@@ -5,6 +5,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
 import { cn } from "@/lib/utils";
+import { useUserId } from "@/lib/useUserId";
 import {
   Send,
   Loader2,
@@ -18,7 +19,9 @@ import {
   Check,
   Plus,
   FolderOpen,
-  RotateCcw,
+  ChevronDown,
+  Folder,
+  MessageSquare,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -208,17 +211,22 @@ function CodePane({ files }: { files: CodeFile[] }) {
     );
   }
 
-  const file = files[Math.min(activeFile, files.length - 1)];
+  const safeIdx = Math.min(activeFile, files.length - 1);
+  const file = files[safeIdx];
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Tabs bar */}
-      <div className="flex items-center border-b border-[--border] bg-[--surface] overflow-x-auto shrink-0">
-        <div className="flex items-center gap-px px-2 shrink-0">
+    <div className="flex h-full overflow-hidden">
+      {/* Desktop file tree sidebar */}
+      <FileTreeSidebar files={files} activeFile={safeIdx} onSelect={setActiveFile} />
+
+      {/* Editor + Preview area */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+        {/* Top tab bar: Code | Preview + breadcrumb */}
+        <div className="flex items-center border-b border-[--border] bg-[--surface] shrink-0">
           <button
             onClick={() => setActiveTab("code")}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-2 text-xs border-b-2 transition-colors mr-1",
+              "flex items-center gap-1.5 px-3 md:px-4 py-2.5 text-xs border-b-2 transition-colors",
               activeTab === "code"
                 ? "border-[--accent] text-[--accent]"
                 : "border-transparent text-[--muted] hover:text-[--foreground]"
@@ -230,7 +238,7 @@ function CodePane({ files }: { files: CodeFile[] }) {
           <button
             onClick={() => setActiveTab("preview")}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-2 text-xs border-b-2 transition-colors",
+              "flex items-center gap-1.5 px-3 md:px-4 py-2.5 text-xs border-b-2 transition-colors",
               activeTab === "preview"
                 ? "border-[--accent] text-[--accent]"
                 : "border-transparent text-[--muted] hover:text-[--foreground]"
@@ -239,48 +247,32 @@ function CodePane({ files }: { files: CodeFile[] }) {
             <Eye className="w-3 h-3" />
             Preview
           </button>
-        </div>
-
-        <div className="h-4 w-px bg-[--border] mx-1 shrink-0" />
-
-        <div className="flex items-center overflow-x-auto">
-          {files.map((f, i) => (
-            <button
-              key={`${f.name}-${i}`}
-              onClick={() => setActiveFile(i)}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-2 text-xs border-b-2 transition-colors whitespace-nowrap",
-                i === activeFile
-                  ? "border-[--accent] text-[--accent] bg-[--surface-raised]"
-                  : "border-transparent text-[--muted] hover:text-[--foreground] hover:bg-[--surface-raised]"
-              )}
-            >
-              <FileText className="w-3 h-3" />
-              {f.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Content */}
-      {activeTab === "code" ? (
-        <div className="flex-1 overflow-auto bg-[--background]">
-          <div className="flex items-center justify-between px-4 py-2 border-b border-[--border] sticky top-0 bg-[--surface] z-10">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono text-[--muted]">{file.name}</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded border border-[--border] text-[--muted] font-mono">
-                {file.language}
-              </span>
-            </div>
+          {/* Breadcrumb — desktop only */}
+          <div className="hidden md:flex items-center gap-1.5 ml-auto pr-4 text-[10px] font-mono text-[--muted]">
+            <span className="truncate max-w-[200px]">{file.name}</span>
+            <span className="px-1 py-0.5 rounded border border-[--border] text-[9px]">{file.language}</span>
             <CopyButton text={file.content} />
           </div>
-          <pre className="p-4 text-xs font-mono text-[--foreground] leading-relaxed overflow-x-auto">
-            <code>{file.content}</code>
-          </pre>
+          {/* Copy — mobile only */}
+          <div className="md:hidden ml-auto pr-3">
+            <CopyButton text={file.content} />
+          </div>
         </div>
-      ) : (
-        <PreviewPane files={files} />
-      )}
+
+        {/* Mobile file tabs (horizontal scroll) */}
+        <MobileFileTabs files={files} activeFile={safeIdx} onSelect={setActiveFile} />
+
+        {/* Content */}
+        {activeTab === "code" ? (
+          <div className="flex-1 overflow-auto bg-[--background]">
+            <pre className="p-3 md:p-4 text-xs font-mono text-[--foreground] leading-relaxed overflow-x-auto">
+              <code>{file.content}</code>
+            </pre>
+          </div>
+        ) : (
+          <PreviewPane files={files} />
+        )}
+      </div>
     </div>
   );
 }
@@ -338,51 +330,309 @@ function MsgBubble({ msg }: { msg: UIMessage }) {
   );
 }
 
+// ── Generation progress component ─────────────────────────────────────────────
+
+const GENERATION_STEPS = [
+  { label: "Analyzing request", sub: "Reading conversation context…" },
+  { label: "Planning structure", sub: "Deciding which files to create or modify…" },
+  { label: "Writing code", sub: "Generating production-quality code…" },
+  { label: "Reviewing output", sub: "Checking for errors and best practices…" },
+];
+
+function GenerationProgress({ fileCount }: { fileCount: number }) {
+  const [stepIdx, setStepIdx] = useState(0);
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    // Advance progress bar smoothly
+    const interval = setInterval(() => {
+      setProgress((p) => {
+        if (p >= 95) return p; // stall before 100 — model finishes it
+        return p + Math.random() * 4;
+      });
+    }, 300);
+
+    // Cycle through status steps
+    const stepInterval = setInterval(() => {
+      setStepIdx((i) => Math.min(i + 1, GENERATION_STEPS.length - 1));
+    }, 2200);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(stepInterval);
+    };
+  }, []);
+
+  const step = GENERATION_STEPS[stepIdx];
+
+  return (
+    <div className="flex flex-col gap-4 rounded-xl border border-[--border] bg-[--surface] px-4 py-3.5 mx-4 my-2">
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Loader2 className="w-3.5 h-3.5 text-[--accent] animate-spin shrink-0" />
+          <span className="text-xs font-mono font-semibold text-[--foreground]">
+            {step.label}
+          </span>
+        </div>
+        {fileCount > 0 && (
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-[--accent]/30 bg-[--accent-dim] text-[--accent]">
+            {fileCount} file{fileCount !== 1 ? "s" : ""}
+          </span>
+        )}
+      </div>
+
+      {/* Progress bar */}
+      <div className="h-1 w-full rounded-full bg-[--border] overflow-hidden">
+        <div
+          className="h-full rounded-full bg-[--accent] transition-all duration-300 ease-out"
+          style={{ width: `${Math.min(progress, 95)}%` }}
+        />
+      </div>
+
+      {/* Sub-label */}
+      <p className="text-[10px] font-mono text-[--muted] leading-relaxed -mt-2">
+        {step.sub}
+      </p>
+
+      {/* Step dots */}
+      <div className="flex items-center gap-2 -mt-1">
+        {GENERATION_STEPS.map((s, i) => (
+          <div key={i} className="flex items-center gap-1.5">
+            <span
+              className={cn(
+                "w-1.5 h-1.5 rounded-full transition-colors duration-300",
+                i < stepIdx
+                  ? "bg-[--accent]"
+                  : i === stepIdx
+                  ? "bg-[--accent] animate-pulse"
+                  : "bg-[--border]"
+              )}
+            />
+            {i < GENERATION_STEPS.length - 1 && (
+              <span className="w-4 h-px bg-[--border]" />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── File tree sidebar ─────────────────────────────────────────────────────────
+
+interface FileTreeNode {
+  name: string;
+  path: string;
+  children?: FileTreeNode[];
+  fileIndex?: number;
+}
+
+function buildFileTree(files: CodeFile[]): FileTreeNode[] {
+  const root: FileTreeNode[] = [];
+
+  files.forEach((file, idx) => {
+    const parts = file.name.split("/");
+    let nodes = root;
+
+    parts.forEach((part, depth) => {
+      const isLeaf = depth === parts.length - 1;
+      let existing = nodes.find((n) => n.name === part);
+
+      if (!existing) {
+        existing = {
+          name: part,
+          path: parts.slice(0, depth + 1).join("/"),
+          ...(isLeaf ? { fileIndex: idx } : { children: [] }),
+        };
+        nodes.push(existing);
+      }
+      if (!isLeaf && existing.children) {
+        nodes = existing.children;
+      }
+    });
+  });
+
+  return root;
+}
+
+function TreeNode({
+  node,
+  depth,
+  activeFile,
+  onSelect,
+}: {
+  node: FileTreeNode;
+  depth: number;
+  activeFile: number;
+  onSelect: (idx: number) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const isFolder = node.children !== undefined;
+  const isActive = node.fileIndex === activeFile;
+
+  if (isFolder) {
+    return (
+      <div>
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-1 w-full px-2 py-[3px] hover:bg-[--surface-raised] transition-colors text-[11px] font-mono text-[--muted]"
+          style={{ paddingLeft: `${8 + depth * 12}px` }}
+        >
+          <ChevronDown
+            className={cn(
+              "w-3 h-3 shrink-0 transition-transform",
+              !open && "-rotate-90"
+            )}
+          />
+          <Folder className="w-3 h-3 shrink-0 text-[--accent] opacity-70" />
+          <span className="truncate">{node.name}</span>
+        </button>
+        {open && node.children?.map((child) => (
+          <TreeNode
+            key={child.path}
+            node={child}
+            depth={depth + 1}
+            activeFile={activeFile}
+            onSelect={onSelect}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => typeof node.fileIndex === "number" && onSelect(node.fileIndex)}
+      className={cn(
+        "flex items-center gap-1.5 w-full px-2 py-[3px] text-[11px] font-mono transition-colors truncate",
+        isActive
+          ? "bg-[--accent-dim] text-[--accent]"
+          : "text-[--muted] hover:bg-[--surface-raised] hover:text-[--foreground]"
+      )}
+      style={{ paddingLeft: `${8 + depth * 12}px` }}
+    >
+      <FileText className="w-3 h-3 shrink-0" />
+      <span className="truncate">{node.name}</span>
+    </button>
+  );
+}
+
+function FileTreeSidebar({
+  files,
+  activeFile,
+  onSelect,
+}: {
+  files: CodeFile[];
+  activeFile: number;
+  onSelect: (idx: number) => void;
+}) {
+  const tree = buildFileTree(files);
+
+  return (
+    <div className="hidden md:flex flex-col h-full w-[180px] shrink-0 border-r border-[--border] bg-[--surface] overflow-hidden">
+      {/* Sidebar header */}
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-[--border] shrink-0">
+        <FolderOpen className="w-3 h-3 text-[--accent]" />
+        <span className="text-[10px] font-mono uppercase tracking-wider text-[--muted]">
+          Explorer
+        </span>
+      </div>
+      <div className="flex-1 overflow-y-auto py-1">
+        {tree.length === 0 ? (
+          <p className="text-[10px] font-mono text-[--muted] px-3 py-2">No files yet</p>
+        ) : (
+          tree.map((node) => (
+            <TreeNode key={node.path} node={node} depth={0} activeFile={activeFile} onSelect={onSelect} />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Mobile file tabs — horizontal scroll row shown only on small screens */
+function MobileFileTabs({
+  files,
+  activeFile,
+  onSelect,
+}: {
+  files: CodeFile[];
+  activeFile: number;
+  onSelect: (idx: number) => void;
+}) {
+  if (files.length === 0) return null;
+  return (
+    <div className="md:hidden flex items-center overflow-x-auto border-b border-[--border] bg-[--surface] shrink-0">
+      {files.map((f, i) => (
+        <button
+          key={i}
+          onClick={() => onSelect(i)}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-2 shrink-0 text-[11px] font-mono border-b-2 transition-colors whitespace-nowrap",
+            i === activeFile
+              ? "border-[--accent] text-[--accent]"
+              : "border-transparent text-[--muted] hover:text-[--foreground]"
+          )}
+        >
+          <FileText className="w-3 h-3" />
+          {f.name.split("/").pop()}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ── History helpers ───────────────────────────────────────────────────────────
 
-const CODE_STORAGE_KEY = "jp_code_editor_history";
+function codeStorageKey(userId: string) {
+  return `jp_code_editor_history_${userId}`;
+}
 
-function loadCodeHistory() {
+function loadCodeHistory(userId: string) {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(CODE_STORAGE_KEY);
+    const raw = localStorage.getItem(codeStorageKey(userId));
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
   }
 }
 
-function saveCodeHistory(messages: ReturnType<typeof loadCodeHistory>) {
+function saveCodeHistory(userId: string, messages: UIMessage[]) {
   try {
-    localStorage.setItem(CODE_STORAGE_KEY, JSON.stringify(messages));
+    localStorage.setItem(codeStorageKey(userId), JSON.stringify(messages));
   } catch { /* ignore quota */ }
 }
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 
 export function CodeEditorPanel() {
+  const userId = useUserId();
   const { messages, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({ api: "/api/code" }),
   });
 
   const [input, setInput] = useState("");
+  const [mobileTab, setMobileTab] = useState<"chat" | "code">("chat");
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isStreaming = status === "streaming" || status === "submitted";
   const historyLoaded = useRef(false);
 
-  // Load history once on mount
+  // Load per-user history
   useEffect(() => {
-    if (historyLoaded.current) return;
+    if (!userId || historyLoaded.current) return;
     historyLoaded.current = true;
-    const saved = loadCodeHistory();
+    const saved = loadCodeHistory(userId);
     if (saved.length > 0) setMessages(saved);
-  }, [setMessages]);
+  }, [userId, setMessages]);
 
-  // Persist to localStorage
+  // Persist per-user history
   useEffect(() => {
-    if (messages.length > 0) saveCodeHistory(messages);
-  }, [messages]);
+    if (!userId || messages.length === 0) return;
+    saveCodeHistory(userId, messages);
+  }, [userId, messages]);
 
   // Derive latest code files from last assistant message
   const lastAssistant = [...messages]
@@ -418,121 +668,166 @@ export function CodeEditorPanel() {
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   };
 
-  return (
-    <div className="flex h-full overflow-hidden">
-      {/* Left: Chat pane */}
-      <div className="flex flex-col w-[420px] shrink-0 border-r border-[--border] overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[--border] bg-[--surface] shrink-0">
-          <div className="flex items-center gap-2">
-            <Code2 className="w-3.5 h-3.5 text-[--accent]" />
-            <span className="text-xs font-mono font-semibold text-[--foreground]">JP_CODE_EDITOR</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-mono text-[--muted]">claude-sonnet-4-5</span>
+  const clearHistory = () => {
+    if (!userId) return;
+    setMessages([]);
+    localStorage.removeItem(codeStorageKey(userId));
+  };
+
+  // Shared chat panel content
+  const chatContent = (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 md:px-4 py-2.5 border-b border-[--border] bg-[--surface] shrink-0">
+        <div className="flex items-center gap-2">
+          <Code2 className="w-3.5 h-3.5 text-[--accent]" />
+          <span className="text-xs font-mono font-semibold text-[--foreground]">JP_CODE_EDITOR</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="hidden md:inline text-[11px] font-mono text-[--muted]">claude-sonnet-4-5</span>
+          {messages.length > 0 && (
             <button
-              onClick={() => { setMessages([]); localStorage.removeItem(CODE_STORAGE_KEY); }}
+              onClick={clearHistory}
               title="New session"
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-[--border] bg-[--surface-raised] hover:border-[--accent] hover:text-[--accent] text-[--muted] text-xs transition-colors"
             >
               <Plus className="w-3 h-3" />
-              New
+              <span className="hidden sm:inline">New</span>
             </button>
-          </div>
-        </div>
-
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto py-2">
-          {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
-              <Zap className="w-8 h-8 text-[--accent]" />
-              <p className="text-xs font-mono text-[--muted] leading-relaxed">
-                {'> describe what to build,'}<br/>{'> JP Code generates the code.'}
-              </p>
-              <div className="flex flex-col gap-2 w-full">
-                {[
-                  "Create a Rust HTTP server with Axum",
-                  "Write a TypeScript React hook for fetching data",
-                  "Build a Python FastAPI with JWT auth",
-                  "Implement a port scanner in Python",
-                ].map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => sendMessage({ text: p })}
-                    className="text-left px-3 py-2 rounded-lg border border-[--border] bg-[--surface] hover:border-[--accent] hover:bg-[--accent-dim] transition-colors text-xs text-[--muted] hover:text-[--accent]"
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <>
-              {messages.map((msg) => (
-                <MsgBubble key={msg.id} msg={msg} />
-              ))}
-              {isStreaming && (
-                <div className="flex gap-3 px-4 py-3">
-                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-[--accent-dim] text-[--accent] shrink-0">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  </div>
-                  <div className="rounded-xl px-3.5 py-3 bg-[--surface] border border-[--border]">
-                    <div className="flex items-center gap-1 h-4">
-                      {[0, 1, 2].map((i) => (
-                        <span
-                          key={i}
-                          className="typing-dot w-1.5 h-1.5 rounded-full bg-[--muted]"
-                          style={{ animationDelay: `${i * 0.15}s` }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-              <div ref={bottomRef} />
-            </>
           )}
-        </div>
-
-        {/* Input */}
-        <div className="px-3 py-3 border-t border-[--border] bg-[--surface] shrink-0">
-          <div className="flex items-end gap-2 rounded-xl border border-[--border] bg-[--surface-raised] px-3 py-2 focus-within:border-[--accent] transition-colors">
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onInput={handleInput}
-              rows={1}
-              placeholder="Describe what you want to build…"
-              className="flex-1 resize-none bg-transparent text-sm text-[--foreground] placeholder:text-[--muted] outline-none leading-relaxed min-h-[24px] max-h-[160px] py-0.5 font-mono"
-            />
-            <button
-              onClick={submit}
-              disabled={isStreaming || !input.trim()}
-              className={cn(
-                "flex items-center justify-center w-8 h-8 rounded-lg transition-colors shrink-0",
-                input.trim() && !isStreaming
-                  ? "bg-[--accent] text-white hover:bg-[--accent-hover]"
-                  : "bg-[--border] text-[--muted] cursor-not-allowed"
-              )}
-            >
-              {isStreaming ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <ChevronRight className="w-3.5 h-3.5" />
-              )}
-            </button>
-          </div>
-          <p className="text-[10px] text-[--muted] mt-1.5 px-1">
-            Shift+Enter for newline
-          </p>
         </div>
       </div>
 
-      {/* Right: Code pane */}
-      <div className="flex-1 min-w-0 overflow-hidden bg-[--background]">
-        <CodePane files={activeFiles} />
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto overscroll-contain py-2">
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center min-h-full gap-3 px-5 py-8 text-center">
+            <Zap className="w-8 h-8 text-[--accent]" />
+            <p className="text-xs font-mono text-[--muted] leading-relaxed">
+              {">"} Describe what to build.
+              <br />
+              {">"} JP Code generates the files.
+            </p>
+            <div className="flex flex-col gap-2 w-full max-w-sm">
+              {[
+                "Create a Rust HTTP server with Axum",
+                "Write a TypeScript React hook for fetching data",
+                "Build a Python FastAPI with JWT auth",
+                "Implement a port scanner in Python",
+              ].map((p) => (
+                <button
+                  key={p}
+                  onClick={() => { sendMessage({ text: p }); setMobileTab("code"); }}
+                  className="text-left px-3 py-2.5 rounded-lg border border-[--border] bg-[--surface] hover:border-[--accent] hover:bg-[--accent-dim] transition-colors text-xs font-mono text-[--muted] hover:text-[--accent] active:scale-95"
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            {messages.map((msg) => (
+              <MsgBubble key={msg.id} msg={msg} />
+            ))}
+            {isStreaming && <GenerationProgress fileCount={activeFiles.length} />}
+            <div ref={bottomRef} />
+          </>
+        )}
+      </div>
+
+      {/* Input */}
+      <div className="px-3 py-3 border-t border-[--border] bg-[--surface] shrink-0">
+        <div className="flex items-end gap-2 rounded-xl border border-[--border] bg-[--surface-raised] px-3 py-2 focus-within:border-[--accent] transition-colors">
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onInput={handleInput}
+            rows={1}
+            placeholder="Describe what you want to build…"
+            className="flex-1 resize-none bg-transparent text-sm text-[--foreground] placeholder:text-[--muted] outline-none leading-relaxed min-h-[24px] max-h-[120px] py-0.5 font-mono"
+          />
+          <button
+            onClick={() => { submit(); setMobileTab("code"); }}
+            disabled={isStreaming || !input.trim()}
+            className={cn(
+              "flex items-center justify-center w-9 h-9 rounded-lg transition-colors shrink-0 active:scale-95",
+              input.trim() && !isStreaming
+                ? "bg-[--accent] hover:bg-[--accent-hover]"
+                : "bg-[--border] text-[--muted] cursor-not-allowed"
+            )}
+            style={input.trim() && !isStreaming ? { color: "var(--on-accent)" } : undefined}
+          >
+            {isStreaming ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+          </button>
+        </div>
+        <p className="hidden md:block text-[10px] text-[--muted] mt-1.5 px-1 font-mono">
+          Shift+Enter for newline
+        </p>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* ── MOBILE: tab switcher ─────────────────────────────────────── */}
+      <div className="flex md:hidden border-b border-[--border] bg-[--surface] shrink-0">
+        <button
+          onClick={() => setMobileTab("chat")}
+          className={cn(
+            "flex items-center gap-2 flex-1 justify-center py-2.5 text-xs font-mono border-b-2 transition-colors",
+            mobileTab === "chat"
+              ? "border-[--accent] text-[--accent]"
+              : "border-transparent text-[--muted]"
+          )}
+        >
+          <MessageSquare className="w-3.5 h-3.5" />
+          Chat
+        </button>
+        <button
+          onClick={() => setMobileTab("code")}
+          className={cn(
+            "flex items-center gap-2 flex-1 justify-center py-2.5 text-xs font-mono border-b-2 transition-colors",
+            mobileTab === "code"
+              ? "border-[--accent] text-[--accent]"
+              : "border-transparent text-[--muted]"
+          )}
+        >
+          <Code2 className="w-3.5 h-3.5" />
+          Code
+          {activeFiles.length > 0 && (
+            <span className="text-[9px] px-1 rounded bg-[--accent-dim] border border-[--accent]/30 text-[--accent]">
+              {activeFiles.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* ── MOBILE: single-pane view ─────────────────────────────────── */}
+      <div className="flex md:hidden flex-1 min-h-0 overflow-hidden">
+        {mobileTab === "chat" ? (
+          chatContent
+        ) : (
+          <div className="flex-1 overflow-hidden bg-[--background]">
+            <CodePane files={activeFiles} />
+          </div>
+        )}
+      </div>
+
+      {/* ── DESKTOP: side-by-side layout ─────────────────────────────── */}
+      <div className="hidden md:flex flex-1 min-h-0 overflow-hidden">
+        <div className="flex flex-col w-[420px] shrink-0 border-r border-[--border] overflow-hidden">
+          {chatContent}
+        </div>
+        <div className="flex-1 min-w-0 overflow-hidden bg-[--background]">
+          <CodePane files={activeFiles} />
+        </div>
       </div>
     </div>
   );
