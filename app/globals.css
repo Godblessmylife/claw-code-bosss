@@ -35,7 +35,14 @@
   --accent-dim:      rgba(0, 255, 65, 0.08);
   --destructive:     #ff003c;
   --success:         #00ff41;
+  --on-accent:       #000000;
 }
+
+[data-theme="crimson"] { --on-accent: #ffffff; }
+[data-theme="cyan"]    { --on-accent: #000000; }
+[data-theme="amber"]   { --on-accent: #000000; }
+[data-theme="white"]   { --on-accent: #ffffff; }
+[data-theme="aurora"]  { --on-accent: #ffffff; }
 
 /* ── THEME: CRIMSON ───────────────────────────────────────────── */
 [data-theme="crimson"] {
@@ -87,18 +94,18 @@
 
 /* ── THEME: WHITE ─────────────────────────────────────────────── */
 [data-theme="white"] {
-  --background:      #f8f9fa;
+  --background:      #eef2f7;
   --surface:         #ffffff;
-  --surface-raised:  #f0f2f5;
-  --border:          #d0d5dd;
-  --border-subtle:   #e4e7ec;
-  --foreground:      #101828;
-  --muted:           #667085;
-  --accent:          #0052cc;
-  --accent-hover:    #0065ff;
-  --accent-dim:      rgba(0, 82, 204, 0.08);
-  --destructive:     #d92d20;
-  --success:         #12b76a;
+  --surface-raised:  #f4f6fa;
+  --border:          #c8d0dc;
+  --border-subtle:   #dde3ec;
+  --foreground:      #0d1b2e;
+  --muted:           #5a6a82;
+  --accent:          #1a56db;
+  --accent-hover:    #1e40af;
+  --accent-dim:      rgba(26, 86, 219, 0.09);
+  --destructive:     #c0392b;
+  --success:         #0d9e6a;
 }
 
 /* ── THEME: AURORA (animated) ─────────────────────────────────── */
@@ -245,12 +252,28 @@ body::after {
   color: var(--accent);
 }
 
-/* ── White theme overrides (no CRT scanlines) ─────────────────── */
-[data-theme="white"] body::before {
+/* ── White theme overrides (clean light UI — no CRT artifacts) ── */
+html[data-theme="white"] body::before {
   display: none;
 }
-[data-theme="white"] body::after {
-  opacity: 0.04;
+html[data-theme="white"] body::after {
+  background-image:
+    linear-gradient(var(--border-subtle) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.5;
+}
+
+/* Prose code on white — ensure contrast */
+[data-theme="white"] .prose-chat code {
+  background: var(--surface-raised);
+  border-color: var(--border);
+  color: var(--accent);
+}
+[data-theme="white"] .prose-chat pre {
+  background: var(--surface-raised);
+  border-color: var(--border);
+  border-left-color: var(--accent);
 }
 
 /* ── Aurora animated background ───────────────────────────────── */
@@ -260,7 +283,7 @@ body::after {
   100% { background-position: 0% 50%; }
 }
 
-[data-theme="aurora"] body::after {
+html[data-theme="aurora"] body::after {
   background-image:
     linear-gradient(135deg,
       rgba(0, 255, 200, 0.05) 0%,
@@ -276,6 +299,6 @@ body::after {
   0%, 100% { text-shadow: 0 0 8px rgba(191, 96, 255, 0.8), 0 0 20px rgba(0, 255, 200, 0.4); }
   50%       { text-shadow: 0 0 12px rgba(0, 255, 200, 0.8), 0 0 30px rgba(191, 96, 255, 0.5); }
 }
-[data-theme="aurora"] .animate-glitch {
+html[data-theme="aurora"] .animate-glitch {
   animation: aurora-glow 2s ease-in-out infinite;
 }

@@ -65,9 +65,10 @@ export function ChatInput({ onSend, disabled, placeholder }: Props) {
           className={cn(
             "flex items-center justify-center w-8 h-8 rounded-lg transition-colors shrink-0",
             value.trim() && !disabled
-              ? "bg-[--accent] text-white hover:bg-[--accent-hover]"
+              ? "bg-[--accent] hover:bg-[--accent-hover]"
               : "bg-[--border] text-[--muted] cursor-not-allowed"
           )}
+          style={value.trim() && !disabled ? { color: "var(--on-accent)" } : undefined}
           aria-label="Send message"
         >
           {disabled ? (

@@ -107,7 +107,7 @@ export function ChatPanel() {
           <div className="flex flex-col items-center justify-center h-full gap-5 px-8 text-center">
             <div className="relative flex items-center justify-center w-16 h-16 rounded border border-[--accent]/40 bg-[--accent-dim]">
               <Shield className="w-8 h-8 text-[--accent]" />
-              <span className="absolute -top-2 -right-2 flex items-center justify-center w-5 h-5 rounded-full bg-[--accent] text-black text-[9px] font-bold font-mono">
+              <span className="absolute -top-2 -right-2 flex items-center justify-center w-5 h-5 rounded-full bg-[--accent] text-[9px] font-bold font-mono" style={{ color: "var(--on-accent)" }}>
                 AI
               </span>
             </div>
