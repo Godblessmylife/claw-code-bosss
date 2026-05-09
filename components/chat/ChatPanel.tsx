@@ -6,7 +6,8 @@ import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
 import { ChatMessageItem, TypingIndicator } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
-import { Shield, MessageSquare, Terminal, Plus, Trash2 } from "lucide-react";
+import { Shield, MessageSquare, Terminal, Plus, Trash2, Briefcase, ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 const STORAGE_KEY = "jp_code_chat_history";
 
@@ -118,7 +119,17 @@ export function ChatPanel() {
                 {">"} AI coding assistant online.
                 <br />
                 {">"} Ask anything about code.
+                <br />
+                {">"} AI business automation available.
               </p>
+              <Link
+                href="/business"
+                className="inline-flex items-center gap-2 mt-2 px-3 py-1.5 rounded border border-[--accent]/50 bg-[--accent-dim] hover:bg-[--accent]/20 hover:border-[--accent] transition-colors text-[11px] font-mono text-[--accent]"
+              >
+                <Briefcase className="w-3 h-3" />
+                Open AI Business Automation
+                <ArrowRight className="w-3 h-3" />
+              </Link>
             </div>
             <div className="grid grid-cols-1 gap-1.5 w-full max-w-sm">
               {QUICK_PROMPTS.map((prompt) => (
