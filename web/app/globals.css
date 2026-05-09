@@ -1,40 +1,88 @@
 @import "tailwindcss";
 
 @theme inline {
-  /* Fonts */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  /* Color palette — dark terminal aesthetic */
-  --color-background:    var(--background);
-  --color-surface:       var(--surface);
-  --color-surface-raised: var(--surface-raised);
-  --color-border:        var(--border);
-  --color-border-subtle: var(--border-subtle);
-  --color-foreground:    var(--foreground);
-  --color-muted:         var(--muted);
-  --color-accent:        var(--accent);
-  --color-accent-hover:  var(--accent-hover);
-  --color-accent-dim:    var(--accent-dim);
-  --color-destructive:   var(--destructive);
-  --color-success:       var(--success);
+  --color-background:      var(--background);
+  --color-surface:         var(--surface);
+  --color-surface-raised:  var(--surface-raised);
+  --color-border:          var(--border);
+  --color-border-subtle:   var(--border-subtle);
+  --color-foreground:      var(--foreground);
+  --color-muted:           var(--muted);
+  --color-accent:          var(--accent);
+  --color-accent-hover:    var(--accent-hover);
+  --color-accent-dim:      var(--accent-dim);
+  --color-destructive:     var(--destructive);
+  --color-success:         var(--success);
 
-  --radius: 0.375rem;
+  --radius: 0.25rem;
 }
 
-:root {
-  --background:     #0a0a0a;
-  --surface:        #111111;
-  --surface-raised: #1a1a1a;
-  --border:         #2a2a2a;
-  --border-subtle:  #1f1f1f;
-  --foreground:     #ededed;
-  --muted:          #737373;
-  --accent:         #f97316;
-  --accent-hover:   #ea6f0a;
-  --accent-dim:     rgba(249, 115, 22, 0.12);
-  --destructive:    #ef4444;
-  --success:        #22c55e;
+/* ── THEME: MATRIX (default) ──────────────────────────────────── */
+:root,
+[data-theme="matrix"] {
+  --background:      #000000;
+  --surface:         #050f05;
+  --surface-raised:  #0a1a0a;
+  --border:          #0d2b0d;
+  --border-subtle:   #071507;
+  --foreground:      #00ff41;
+  --muted:           #1a7a1a;
+  --accent:          #00ff41;
+  --accent-hover:    #33ff66;
+  --accent-dim:      rgba(0, 255, 65, 0.08);
+  --destructive:     #ff003c;
+  --success:         #00ff41;
+}
+
+/* ── THEME: CRIMSON ───────────────────────────────────────────── */
+[data-theme="crimson"] {
+  --background:      #000000;
+  --surface:         #0f0505;
+  --surface-raised:  #1a0a0a;
+  --border:          #2b0d0d;
+  --border-subtle:   #150707;
+  --foreground:      #ff3c3c;
+  --muted:           #7a1a1a;
+  --accent:          #ff3c3c;
+  --accent-hover:    #ff6666;
+  --accent-dim:      rgba(255, 60, 60, 0.08);
+  --destructive:     #ff003c;
+  --success:         #00ff41;
+}
+
+/* ── THEME: CYAN ──────────────────────────────────────────────── */
+[data-theme="cyan"] {
+  --background:      #000000;
+  --surface:         #050d10;
+  --surface-raised:  #0a161b;
+  --border:          #0d2530;
+  --border-subtle:   #070f14;
+  --foreground:      #00d4ff;
+  --muted:           #1a5a7a;
+  --accent:          #00d4ff;
+  --accent-hover:    #33ddff;
+  --accent-dim:      rgba(0, 212, 255, 0.08);
+  --destructive:     #ff003c;
+  --success:         #00ff41;
+}
+
+/* ── THEME: AMBER ─────────────────────────────────────────────── */
+[data-theme="amber"] {
+  --background:      #000000;
+  --surface:         #100c00;
+  --surface-raised:  #1a1400;
+  --border:          #2b2200;
+  --border-subtle:   #151000;
+  --foreground:      #ffb800;
+  --muted:           #7a5a00;
+  --accent:          #ffb800;
+  --accent-hover:    #ffd033;
+  --accent-dim:      rgba(255, 184, 0, 0.08);
+  --destructive:     #ff003c;
+  --success:         #00ff41;
 }
 
 * {
@@ -49,45 +97,67 @@ body {
 }
 
 body {
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-geist-mono), monospace;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--muted);
+/* ── Scanline CRT overlay ───────────────────────────────────────── */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.07) 2px,
+    rgba(0, 0, 0, 0.07) 4px
+  );
 }
 
-/* Chat message prose */
+/* ── Matrix rain grid background ───────────────────────────────── */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(var(--accent-dim) 1px, transparent 1px),
+    linear-gradient(90deg, var(--accent-dim) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.3;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────── */
+::-webkit-scrollbar        { width: 4px; height: 4px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: var(--border); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* ── Chat prose ────────────────────────────────────────────────── */
 .prose-chat {
-  font-size: 0.875rem;
-  line-height: 1.6;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  font-family: var(--font-geist-mono), monospace;
 }
 .prose-chat code {
-  font-family: var(--font-geist-mono);
-  font-size: 0.8125rem;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.75rem;
   background: var(--surface-raised);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 2px;
   padding: 1px 5px;
-  color: #f97316;
+  color: var(--accent);
 }
 .prose-chat pre {
   background: var(--surface-raised);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-left: 2px solid var(--accent);
+  border-radius: 2px;
   padding: 12px 14px;
   overflow-x: auto;
   margin: 8px 0;
@@ -99,22 +169,46 @@ body {
   color: var(--foreground);
 }
 
-/* Blinking cursor animation */
+/* ── Animations ────────────────────────────────────────────────── */
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0; }
 }
-.animate-blink {
-  animation: blink 1s step-end infinite;
-}
+.animate-blink { animation: blink 1s step-end infinite; }
 
-/* Streaming dots */
 @keyframes dot-bounce {
   0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
   40%           { transform: translateY(-4px); opacity: 1; }
 }
-.typing-dot {
-  animation: dot-bounce 1.2s infinite;
-}
+.typing-dot { animation: dot-bounce 1.2s infinite; }
 .typing-dot:nth-child(2) { animation-delay: 0.15s; }
 .typing-dot:nth-child(3) { animation-delay: 0.30s; }
+
+@keyframes glitch {
+  0%   { text-shadow: 2px 0 var(--accent), -2px 0 var(--destructive); }
+  20%  { text-shadow: -2px 0 var(--accent), 2px 0 var(--destructive); }
+  40%  { text-shadow: 2px 2px var(--accent), -2px -2px var(--destructive); }
+  60%  { text-shadow: -2px 2px var(--accent), 2px -2px var(--destructive); }
+  80%  { text-shadow: 0 0 var(--accent); }
+  100% { text-shadow: 2px 0 var(--accent), -2px 0 var(--destructive); }
+}
+.animate-glitch { animation: glitch 3s infinite; }
+
+@keyframes scan {
+  0%   { top: -100%; }
+  100% { top: 100%; }
+}
+.animate-scan { animation: scan 4s linear infinite; }
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in { animation: fade-in 0.2s ease-out; }
+
+/* ── Terminal cursor ───────────────────────────────────────────── */
+.terminal-cursor::after {
+  content: "_";
+  animation: blink 1s step-end infinite;
+  color: var(--accent);
+}

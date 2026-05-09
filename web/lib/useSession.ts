@@ -8,7 +8,7 @@ import {
   type ConversationMessage,
   type SessionSummary,
   listSessions,
-} from "./api";
+} from "@/lib/api";
 
 export interface ChatMessage {
   id: string;
