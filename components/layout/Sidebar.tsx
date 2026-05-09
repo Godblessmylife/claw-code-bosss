@@ -10,6 +10,7 @@ import {
   GitBranch,
   ChevronRight,
   Terminal,
+  Briefcase,
 } from "lucide-react";
 
 const navItems = [
@@ -24,6 +25,12 @@ const navItems = [
     href: "/code",
     icon: Code2,
     description: "v0-style coding interface",
+  },
+  {
+    label: "AI Business",
+    href: "/business",
+    icon: Briefcase,
+    description: "Business process automation",
   },
 ];
 
