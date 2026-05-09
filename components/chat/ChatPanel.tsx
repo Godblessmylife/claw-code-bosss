@@ -116,7 +116,7 @@ export function ChatPanel() {
                 JP_CODE_READY
               </h2>
               <p className="text-xs font-mono text-[--muted] leading-relaxed max-w-sm">
-                {">"} AI coding assistant online.
+                {">"} AI Coding master online.
                 <br />
                 {">"} Ask anything about code.
                 <br />
