@@ -171,6 +171,11 @@ body::after {
   opacity: 0.3;
 }
 
+/* ── iOS safe-area bottom padding (for home-bar devices) ───────── */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* ── Scrollbar ─────────────────────────────────────────────────── */
 ::-webkit-scrollbar        { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track  { background: transparent; }
