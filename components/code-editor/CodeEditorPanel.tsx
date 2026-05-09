@@ -111,6 +111,81 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+function buildPreviewHtml(files: CodeFile[]): string {
+  const html = files.find((f) => f.language === "html" || f.name.endsWith(".html"));
+  const css = files.find((f) => f.language === "css" || f.name.endsWith(".css"));
+  const js = files.find(
+    (f) =>
+      f.language === "javascript" ||
+      f.language === "js" ||
+      f.name.endsWith(".js")
+  );
+
+  if (!html && !css && !js) return "";
+
+  if (html) {
+    let doc = html.content;
+    if (css && !doc.includes("<style>")) {
+      doc = doc.replace("</head>", `<style>${css.content}</style></head>`);
+    }
+    if (js && !doc.includes("<script>")) {
+      doc = doc.replace("</body>", `<script>${js.content}</script></body>`);
+    }
+    return doc;
+  }
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+${css ? `<style>${css.content}</style>` : ""}
+</head>
+<body>
+${js ? `<script>${js.content}</script>` : ""}
+</body>
+</html>`;
+}
+
+function PreviewPane({ files }: { files: CodeFile[] }) {
+  const html = buildPreviewHtml(files);
+
+  if (!html) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-[--surface]">
+        <Terminal className="w-8 h-8 text-[--muted]" />
+        <div className="text-center">
+          <p className="text-sm font-mono font-medium text-[--foreground] mb-1">Preview</p>
+          <p className="text-xs font-mono text-[--muted] max-w-xs leading-relaxed">
+            Preview works for HTML/CSS/JS files.
+            <br />
+            Ask JP Code to build a web page or UI component.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[--border] bg-[--surface] shrink-0">
+        <Eye className="w-3 h-3 text-[--accent]" />
+        <span className="text-[11px] font-mono text-[--muted]">LIVE PREVIEW</span>
+        <span className="w-1.5 h-1.5 rounded-full bg-[--accent] animate-pulse ml-auto" />
+      </div>
+      <iframe
+        key={url}
+        src={url}
+        title="Preview"
+        sandbox="allow-scripts"
+        className="flex-1 w-full border-0 bg-white"
+      />
+    </div>
+  );
+}
+
 function CodePane({ files }: { files: CodeFile[] }) {
   const [activeFile, setActiveFile] = useState(0);
   const [activeTab, setActiveTab] = useState<"code" | "preview">("code");
@@ -124,7 +199,7 @@ function CodePane({ files }: { files: CodeFile[] }) {
       <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-8">
         <FolderOpen className="w-8 h-8 text-[--muted]" />
         <p className="text-sm text-[--muted]">
-          Files will appear here as Claw generates code
+          Files will appear here as JP Code generates code
         </p>
         <p className="text-xs text-[--muted] max-w-xs leading-relaxed">
           Try: &ldquo;Create a Rust HTTP server&rdquo; or &ldquo;Write a Python script to parse JSON&rdquo;
@@ -204,19 +279,7 @@ function CodePane({ files }: { files: CodeFile[] }) {
           </pre>
         </div>
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-[--surface]">
-          <Terminal className="w-8 h-8 text-[--muted]" />
-          <div className="text-center">
-            <p className="text-sm font-medium text-[--foreground] mb-1">Preview</p>
-            <p className="text-xs text-[--muted]">
-              Connect the Rust backend to run and preview code output
-            </p>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded border border-[--border] bg-[--surface-raised]">
-            <span className="w-2 h-2 rounded-full bg-[--muted]" />
-            <span className="text-xs font-mono text-[--muted]">not connected</span>
-          </div>
-        </div>
+        <PreviewPane files={files} />
       )}
     </div>
   );
@@ -275,6 +338,26 @@ function MsgBubble({ msg }: { msg: UIMessage }) {
   );
 }
 
+// ── History helpers ───────────────────────────────────────────────────────────
+
+const CODE_STORAGE_KEY = "jp_code_editor_history";
+
+function loadCodeHistory() {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(CODE_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCodeHistory(messages: ReturnType<typeof loadCodeHistory>) {
+  try {
+    localStorage.setItem(CODE_STORAGE_KEY, JSON.stringify(messages));
+  } catch { /* ignore quota */ }
+}
+
 // ── Main panel ────────────────────────────────────────────────────────────────
 
 export function CodeEditorPanel() {
@@ -286,6 +369,20 @@ export function CodeEditorPanel() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isStreaming = status === "streaming" || status === "submitted";
+  const historyLoaded = useRef(false);
+
+  // Load history once on mount
+  useEffect(() => {
+    if (historyLoaded.current) return;
+    historyLoaded.current = true;
+    const saved = loadCodeHistory();
+    if (saved.length > 0) setMessages(saved);
+  }, [setMessages]);
+
+  // Persist to localStorage
+  useEffect(() => {
+    if (messages.length > 0) saveCodeHistory(messages);
+  }, [messages]);
 
   // Derive latest code files from last assistant message
   const lastAssistant = [...messages]
@@ -332,9 +429,9 @@ export function CodeEditorPanel() {
             <span className="text-xs font-mono font-semibold text-[--foreground]">JP_CODE_EDITOR</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-mono text-[--muted]">claude-opus-4-6</span>
+            <span className="text-[11px] font-mono text-[--muted]">claude-sonnet-4-5</span>
             <button
-              onClick={() => setMessages([])}
+              onClick={() => { setMessages([]); localStorage.removeItem(CODE_STORAGE_KEY); }}
               title="New session"
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-[--border] bg-[--surface-raised] hover:border-[--accent] hover:text-[--accent] text-[--muted] text-xs transition-colors"
             >

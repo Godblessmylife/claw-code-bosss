@@ -56,7 +56,7 @@ export function ChatInput({ onSend, disabled, placeholder }: Props) {
           onInput={handleInput}
           disabled={disabled}
           rows={1}
-          placeholder={placeholder ?? "Ask Claw anything… (Enter to send, Shift+Enter for newline)"}
+          placeholder={placeholder ?? "> ask JP Code anything… (Enter to send, Shift+Enter for newline)"}
           className="flex-1 resize-none bg-transparent text-sm text-[--foreground] placeholder:text-[--muted] outline-none leading-relaxed min-h-[24px] max-h-[200px] py-0.5 font-mono"
         />
         <button
