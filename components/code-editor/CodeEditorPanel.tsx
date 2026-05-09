@@ -193,9 +193,8 @@ function CodePane({ files }: { files: CodeFile[] }) {
   const [activeFile, setActiveFile] = useState(0);
   const [activeTab, setActiveTab] = useState<"code" | "preview">("code");
 
-  useEffect(() => {
-    setActiveFile(0);
-  }, [files.length]);
+  // Only clamp if out of bounds — never force back to 0 when files grow
+  const safeIdx = files.length === 0 ? 0 : Math.min(activeFile, files.length - 1);
 
   if (files.length === 0) {
     return (
@@ -211,7 +210,6 @@ function CodePane({ files }: { files: CodeFile[] }) {
     );
   }
 
-  const safeIdx = Math.min(activeFile, files.length - 1);
   const file = files[safeIdx];
 
   return (
@@ -605,6 +603,137 @@ function saveCodeHistory(userId: string, messages: UIMessage[]) {
   } catch { /* ignore quota */ }
 }
 
+// ── Chat Pane (stable component — never inline as JSX expression) ─────────────
+
+interface ChatPaneProps {
+  messages: UIMessage[];
+  isStreaming: boolean;
+  activeFiles: CodeFile[];
+  input: string;
+  setInput: (v: string) => void;
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  bottomRef: React.RefObject<HTMLDivElement | null>;
+  onSubmit: () => void;
+  onPrompt: (p: string) => void;
+  onClear: () => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  onInput: () => void;
+}
+
+function ChatPane({
+  messages,
+  isStreaming,
+  activeFiles,
+  input,
+  setInput,
+  textareaRef,
+  bottomRef,
+  onSubmit,
+  onPrompt,
+  onClear,
+  onKeyDown,
+  onInput,
+}: ChatPaneProps) {
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 md:px-4 py-2.5 border-b border-[--border] bg-[--surface] shrink-0">
+        <div className="flex items-center gap-2">
+          <Code2 className="w-3.5 h-3.5 text-[--accent]" />
+          <span className="text-xs font-mono font-semibold text-[--foreground]">JP_CODE_EDITOR</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="hidden md:inline text-[11px] font-mono text-[--muted]">claude-sonnet-4-5</span>
+          {messages.length > 0 && (
+            <button
+              onClick={onClear}
+              title="New session"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-[--border] bg-[--surface-raised] hover:border-[--accent] hover:text-[--accent] text-[--muted] text-xs transition-colors"
+            >
+              <Plus className="w-3 h-3" />
+              <span className="hidden sm:inline">New</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto overscroll-contain py-2">
+        {messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center min-h-full gap-3 px-5 py-8 text-center">
+            <Zap className="w-8 h-8 text-[--accent]" />
+            <p className="text-xs font-mono text-[--muted] leading-relaxed">
+              {">"} Describe what to build.
+              <br />
+              {">"} JP Code generates the files.
+            </p>
+            <div className="flex flex-col gap-2 w-full max-w-sm">
+              {[
+                "Create a Rust HTTP server with Axum",
+                "Write a TypeScript React hook for fetching data",
+                "Build a Python FastAPI with JWT auth",
+                "Implement a port scanner in Python",
+              ].map((p) => (
+                <button
+                  key={p}
+                  onClick={() => onPrompt(p)}
+                  className="text-left px-3 py-2.5 rounded-lg border border-[--border] bg-[--surface] hover:border-[--accent] hover:bg-[--accent-dim] transition-colors text-xs font-mono text-[--muted] hover:text-[--accent] active:scale-95"
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            {messages.map((msg) => (
+              <MsgBubble key={msg.id} msg={msg} />
+            ))}
+            {isStreaming && <GenerationProgress fileCount={activeFiles.length} />}
+            <div ref={bottomRef} />
+          </>
+        )}
+      </div>
+
+      {/* Input */}
+      <div className="px-3 py-3 border-t border-[--border] bg-[--surface] shrink-0">
+        <div className="flex items-end gap-2 rounded-xl border border-[--border] bg-[--surface-raised] px-3 py-2 focus-within:border-[--accent] transition-colors">
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={onKeyDown}
+            onInput={onInput}
+            rows={1}
+            placeholder="Describe what you want to build…"
+            className="flex-1 resize-none bg-transparent text-sm text-[--foreground] placeholder:text-[--muted] outline-none leading-relaxed min-h-[24px] max-h-[120px] py-0.5 font-mono"
+          />
+          <button
+            onClick={onSubmit}
+            disabled={isStreaming || !input.trim()}
+            className={cn(
+              "flex items-center justify-center w-9 h-9 rounded-lg transition-colors shrink-0 active:scale-95",
+              input.trim() && !isStreaming
+                ? "bg-[--accent] hover:bg-[--accent-hover]"
+                : "bg-[--border] text-[--muted] cursor-not-allowed"
+            )}
+            style={input.trim() && !isStreaming ? { color: "var(--on-accent)" } : undefined}
+          >
+            {isStreaming ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+          </button>
+        </div>
+        <p className="hidden md:block text-[10px] text-[--muted] mt-1.5 px-1 font-mono">
+          Shift+Enter for newline
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── Main panel ────────────────────────────────────────────────────────────────
 
 export function CodeEditorPanel() {
@@ -634,13 +763,19 @@ export function CodeEditorPanel() {
     saveCodeHistory(userId, messages);
   }, [userId, messages]);
 
-  // Derive latest code files from last assistant message
-  const lastAssistant = [...messages]
-    .reverse()
-    .find((m) => m.role === "assistant");
-  const activeFiles = lastAssistant
-    ? parseCodeBlocks(getMessageText(lastAssistant))
-    : [];
+  // Accumulate all code files across ALL assistant messages.
+  // Never reset to empty — if a follow-up reply has no code blocks,
+  // keep showing the files from the previous code-generating reply.
+  const allFiles = messages
+    .filter((m) => m.role === "assistant")
+    .flatMap((m) => parseCodeBlocks(getMessageText(m)));
+
+  // Deduplicate by filename — later message wins (edit/update semantics)
+  const fileMap = new Map<string, CodeFile>();
+  for (const f of allFiles) {
+    fileMap.set(f.name, f);
+  }
+  const activeFiles = Array.from(fileMap.values());
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -673,106 +808,6 @@ export function CodeEditorPanel() {
     setMessages([]);
     localStorage.removeItem(codeStorageKey(userId));
   };
-
-  // Shared chat panel content
-  const chatContent = (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 md:px-4 py-2.5 border-b border-[--border] bg-[--surface] shrink-0">
-        <div className="flex items-center gap-2">
-          <Code2 className="w-3.5 h-3.5 text-[--accent]" />
-          <span className="text-xs font-mono font-semibold text-[--foreground]">JP_CODE_EDITOR</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="hidden md:inline text-[11px] font-mono text-[--muted]">claude-sonnet-4-5</span>
-          {messages.length > 0 && (
-            <button
-              onClick={clearHistory}
-              title="New session"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-[--border] bg-[--surface-raised] hover:border-[--accent] hover:text-[--accent] text-[--muted] text-xs transition-colors"
-            >
-              <Plus className="w-3 h-3" />
-              <span className="hidden sm:inline">New</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto overscroll-contain py-2">
-        {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center min-h-full gap-3 px-5 py-8 text-center">
-            <Zap className="w-8 h-8 text-[--accent]" />
-            <p className="text-xs font-mono text-[--muted] leading-relaxed">
-              {">"} Describe what to build.
-              <br />
-              {">"} JP Code generates the files.
-            </p>
-            <div className="flex flex-col gap-2 w-full max-w-sm">
-              {[
-                "Create a Rust HTTP server with Axum",
-                "Write a TypeScript React hook for fetching data",
-                "Build a Python FastAPI with JWT auth",
-                "Implement a port scanner in Python",
-              ].map((p) => (
-                <button
-                  key={p}
-                  onClick={() => { sendMessage({ text: p }); setMobileTab("code"); }}
-                  className="text-left px-3 py-2.5 rounded-lg border border-[--border] bg-[--surface] hover:border-[--accent] hover:bg-[--accent-dim] transition-colors text-xs font-mono text-[--muted] hover:text-[--accent] active:scale-95"
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <>
-            {messages.map((msg) => (
-              <MsgBubble key={msg.id} msg={msg} />
-            ))}
-            {isStreaming && <GenerationProgress fileCount={activeFiles.length} />}
-            <div ref={bottomRef} />
-          </>
-        )}
-      </div>
-
-      {/* Input */}
-      <div className="px-3 py-3 border-t border-[--border] bg-[--surface] shrink-0">
-        <div className="flex items-end gap-2 rounded-xl border border-[--border] bg-[--surface-raised] px-3 py-2 focus-within:border-[--accent] transition-colors">
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onInput={handleInput}
-            rows={1}
-            placeholder="Describe what you want to build…"
-            className="flex-1 resize-none bg-transparent text-sm text-[--foreground] placeholder:text-[--muted] outline-none leading-relaxed min-h-[24px] max-h-[120px] py-0.5 font-mono"
-          />
-          <button
-            onClick={() => { submit(); setMobileTab("code"); }}
-            disabled={isStreaming || !input.trim()}
-            className={cn(
-              "flex items-center justify-center w-9 h-9 rounded-lg transition-colors shrink-0 active:scale-95",
-              input.trim() && !isStreaming
-                ? "bg-[--accent] hover:bg-[--accent-hover]"
-                : "bg-[--border] text-[--muted] cursor-not-allowed"
-            )}
-            style={input.trim() && !isStreaming ? { color: "var(--on-accent)" } : undefined}
-          >
-            {isStreaming ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-          </button>
-        </div>
-        <p className="hidden md:block text-[10px] text-[--muted] mt-1.5 px-1 font-mono">
-          Shift+Enter for newline
-        </p>
-      </div>
-    </div>
-  );
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -812,7 +847,20 @@ export function CodeEditorPanel() {
       {/* ── MOBILE: single-pane view ─────────────────────────────────── */}
       <div className="flex md:hidden flex-1 min-h-0 overflow-hidden">
         {mobileTab === "chat" ? (
-          chatContent
+          <ChatPane
+            messages={messages}
+            isStreaming={isStreaming}
+            activeFiles={activeFiles}
+            input={input}
+            setInput={setInput}
+            textareaRef={textareaRef}
+            bottomRef={bottomRef}
+            onSubmit={() => { submit(); setMobileTab("code"); }}
+            onPrompt={(p) => { sendMessage({ text: p }); setMobileTab("code"); }}
+            onClear={clearHistory}
+            onKeyDown={handleKeyDown}
+            onInput={handleInput}
+          />
         ) : (
           <div className="flex-1 overflow-hidden bg-[--background]">
             <CodePane files={activeFiles} />
@@ -823,7 +871,20 @@ export function CodeEditorPanel() {
       {/* ── DESKTOP: side-by-side layout ─────────────────────────────── */}
       <div className="hidden md:flex flex-1 min-h-0 overflow-hidden">
         <div className="flex flex-col w-[420px] shrink-0 border-r border-[--border] overflow-hidden">
-          {chatContent}
+          <ChatPane
+            messages={messages}
+            isStreaming={isStreaming}
+            activeFiles={activeFiles}
+            input={input}
+            setInput={setInput}
+            textareaRef={textareaRef}
+            bottomRef={bottomRef}
+            onSubmit={submit}
+            onPrompt={(p) => sendMessage({ text: p })}
+            onClear={clearHistory}
+            onKeyDown={handleKeyDown}
+            onInput={handleInput}
+          />
         </div>
         <div className="flex-1 min-w-0 overflow-hidden bg-[--background]">
           <CodePane files={activeFiles} />
