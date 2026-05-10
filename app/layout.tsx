@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { AppWithIntro } from "@/components/AppWithIntro";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,7 +39,17 @@ export default function RootLayout({
       data-theme="matrix"
       className={`${geistSans.variable} ${geistMono.variable} bg-background h-full antialiased`}
     >
-      <body className="h-full flex flex-col font-mono">{children}</body>
+      {/* Inline script runs synchronously before paint — prevents theme flash on navigation */}
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('jp_code_theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`,
+          }}
+        />
+      </head>
+      <body className="h-full flex flex-col font-mono">
+        <AppWithIntro>{children}</AppWithIntro>
+      </body>
     </html>
   );
 }

@@ -307,3 +307,9 @@ html[data-theme="aurora"] body::after {
 html[data-theme="aurora"] .animate-glitch {
   animation: aurora-glow 2s ease-in-out infinite;
 }
+
+/* ── Matrix intro dot pulse ────────────────────────────────────── */
+@keyframes matrix-dot {
+  0%   { opacity: 0.2; transform: scale(0.7); }
+  100% { opacity: 1;   transform: scale(1.3); }
+}

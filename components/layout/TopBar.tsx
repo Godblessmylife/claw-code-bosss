@@ -26,11 +26,25 @@ function Clock() {
   return <span className="text-[11px] font-mono text-[--muted] tabular-nums">{time}</span>;
 }
 
+const THEME_KEY = "jp_code_theme";
+
+function getSavedTheme(): Theme {
+  if (typeof window === "undefined") return "matrix";
+  return (localStorage.getItem(THEME_KEY) as Theme) || "matrix";
+}
+
 export function TopBar() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [theme, setTheme] = useState<Theme>("matrix");
   const [showThemes, setShowThemes] = useState(false);
   const themePickerRef = useRef<HTMLDivElement>(null);
+
+  // On mount: restore saved theme
+  useEffect(() => {
+    const saved = getSavedTheme();
+    setTheme(saved);
+    document.documentElement.setAttribute("data-theme", saved);
+  }, []);
 
   // Sync fullscreen state
   useEffect(() => {
@@ -51,9 +65,10 @@ export function TopBar() {
     return () => document.removeEventListener("mousedown", handler);
   }, [showThemes]);
 
-  // Apply theme to <html>
+  // Apply theme to <html> AND persist
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
 
   const toggleFullscreen = useCallback(async () => {
