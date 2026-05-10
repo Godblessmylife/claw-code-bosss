@@ -16,6 +16,7 @@ import {
   Download,
 } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 import { useLang } from "@/lib/langContext";
 
 // ── Telegram animated button ──────────────────────────────────────────────────
