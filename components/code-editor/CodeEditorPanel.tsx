@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useUserId } from "@/lib/useUserId";
 import { upsertProject, type SavedProject } from "@/lib/projectStorage";
 import { useLang } from "@/lib/langContext";
+import { WebContainerPreview } from "@/components/code-editor/WebContainerPreview";
 import {
   Send,
   Loader2,
@@ -122,80 +123,7 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function buildPreviewHtml(files: CodeFile[]): string {
-  const html = files.find((f) => f.language === "html" || f.name.endsWith(".html"));
-  const css = files.find((f) => f.language === "css" || f.name.endsWith(".css"));
-  const js = files.find(
-    (f) =>
-      f.language === "javascript" ||
-      f.language === "js" ||
-      f.name.endsWith(".js")
-  );
-
-  if (!html && !css && !js) return "";
-
-  if (html) {
-    let doc = html.content;
-    if (css && !doc.includes("<style>")) {
-      doc = doc.replace("</head>", `<style>${css.content}</style></head>`);
-    }
-    if (js && !doc.includes("<script>")) {
-      doc = doc.replace("</body>", `<script>${js.content}</script></body>`);
-    }
-    return doc;
-  }
-
-  return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-${css ? `<style>${css.content}</style>` : ""}
-</head>
-<body>
-${js ? `<script>${js.content}</script>` : ""}
-</body>
-</html>`;
-}
-
-function PreviewPane({ files }: { files: CodeFile[] }) {
-  const html = buildPreviewHtml(files);
-
-  if (!html) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-[--surface]">
-        <Terminal className="w-8 h-8 text-[--muted]" />
-        <div className="text-center">
-          <p className="text-sm font-mono font-medium text-[--foreground] mb-1">Preview</p>
-          <p className="text-xs font-mono text-[--muted] max-w-xs leading-relaxed">
-            Preview works for HTML/CSS/JS files.
-            <br />
-            Ask JP Code to build a web page or UI component.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const blob = new Blob([html], { type: "text/html" });
-  const url = URL.createObjectURL(blob);
-
-  return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[--border] bg-[--surface] shrink-0">
-        <Eye className="w-3 h-3 text-[--accent]" />
-        <span className="text-[11px] font-mono text-[--muted]">LIVE PREVIEW</span>
-        <span className="w-1.5 h-1.5 rounded-full bg-[--accent] animate-pulse ml-auto" />
-      </div>
-      <iframe
-        key={url}
-        src={url}
-        title="Preview"
-        sandbox="allow-scripts"
-        className="flex-1 w-full border-0 bg-white"
-      />
-    </div>
-  );
-}
+// PreviewPane replaced by WebContainerPreview — handles HTML and Node.js/Vite
 
 // ── ZIP download helper ────────────────────────────────────────────────────────
 
@@ -579,7 +507,7 @@ function CodePane({
             </pre>
           </div>
         ) : (
-          <PreviewPane files={files} />
+          <WebContainerPreview files={files} className="flex-1" />
         )}
       </div>
       </div>
