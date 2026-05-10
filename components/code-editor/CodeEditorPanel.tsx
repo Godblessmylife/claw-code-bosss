@@ -921,6 +921,7 @@ const COMPLEXITY_OPTIONS = [
 ] as const;
 
 const STACK_PRESETS = [
+  "HTML / CSS / JS (Browser / Game)",
   "TypeScript / React / Next.js",
   "Python / FastAPI",
   "Rust / Axum",
@@ -928,7 +929,6 @@ const STACK_PRESETS = [
   "Go",
   "Solidity / Web3",
   "React Native",
-  "Plain HTML / CSS / JS",
 ];
 
 function ProjectPrefsModal({
@@ -1144,12 +1144,17 @@ function ChatPane({
               {">"} JP Code generates the files.
             </p>
             <div className="flex flex-col gap-2 w-full max-w-sm">
-              {[
-                "Create a Rust HTTP server with Axum",
-                "Write a TypeScript React hook for fetching data",
+              {(lang === "ru" ? [
+                "Сделай игру змейка на HTML/CSS/JS",
+                "Создай 2D платформер на HTML Canvas",
+                "Построй REST API на Python FastAPI",
+                "Напиши HTTP сервер на Rust + Axum",
+              ] : [
+                "Build a Snake game in HTML/CSS/JS",
+                "Create a 2D platformer on HTML Canvas",
                 "Build a Python FastAPI with JWT auth",
-                "Implement a port scanner in Python",
-              ].map((p) => (
+                "Create a Rust HTTP server with Axum",
+              ]).map((p) => (
                 <button
                   key={p}
                   onClick={() => onPrompt(p)}
@@ -1348,8 +1353,19 @@ export function CodeEditorPanel() {
 
   const clearHistory = () => {
     if (!userId) return;
+    // Reset chat
     setMessages([]);
     localStorage.removeItem(codeStorageKey(userId));
+    // Reset project identity so next generation creates a new project
+    setProjectId(null);
+    setProjectName("my-project");
+    // Reset pending prefs so the modal shows again on the next message
+    setPendingMsg(null);
+    setShowPrefs(false);
+    // On mobile, go back to chat tab
+    setMobileTab("chat");
+    // Focus the input
+    setTimeout(() => textareaRef.current?.focus(), 50);
   };
 
   return (
@@ -1437,7 +1453,15 @@ export function CodeEditorPanel() {
             textareaRef={textareaRef}
             bottomRef={bottomRef}
             onSubmit={submit}
-            onPrompt={(p) => sendMessage({ text: p })}
+            onPrompt={(p) => {
+              // Show prefs modal if this is the first message
+              if (messages.length === 0) {
+                setPendingMsg(p);
+                setShowPrefs(true);
+              } else {
+                sendMessage({ text: p });
+              }
+            }}
             onClear={clearHistory}
             onKeyDown={handleKeyDown}
             onInput={handleInput}
