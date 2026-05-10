@@ -14,12 +14,18 @@ import {
   Terminal,
   GitBranch,
   ChevronRight,
+  FolderOpen,
+  Download,
+  Trash2,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useUserId } from "@/lib/useUserId";
+import { loadProjects, deleteProject, type SavedProject } from "@/lib/projectStorage";
 
 const NAV_ITEMS = [
   { label: "Chat",     href: "/chat",     icon: MessageSquare },
   { label: "Code",     href: "/code",     icon: Code2 },
+  { label: "Projects", href: "/projects", icon: FolderOpen },
   { label: "Business", href: "/business", icon: Briefcase },
   { label: "Info",     href: "/info",     icon: Info },
   { label: "Settings", href: "/settings", icon: Settings },
@@ -33,6 +39,99 @@ const SOCIAL_PLATFORMS = [
   { label: "TikTok",     platform: "tiktok",    color: "#69C9D0" },
   { label: "Kick",       platform: "kick",      color: "#53FC18" },
 ];
+
+// ── Sidebar Projects mini-list ─────────────────────────────────────────────────
+
+function SidebarProjects() {
+  const userId = useUserId();
+  const [projects, setProjects] = useState<SavedProject[]>([]);
+  const [open, setOpen] = useState(true);
+
+  useEffect(() => {
+    if (!userId) return;
+    setProjects(loadProjects(userId));
+    // Refresh when storage changes (e.g. after save from CodePane)
+    const handler = () => setProjects(loadProjects(userId));
+    window.addEventListener("storage", handler);
+    // Also poll every 3s for same-tab updates
+    const poll = setInterval(() => setProjects(loadProjects(userId)), 3000);
+    return () => { window.removeEventListener("storage", handler); clearInterval(poll); };
+  }, [userId]);
+
+  const handleDelete = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!userId) return;
+    deleteProject(userId, id);
+    setProjects(loadProjects(userId));
+  };
+
+  const handleDownload = async (e: React.MouseEvent, project: SavedProject) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const JSZip = (await import("jszip")).default;
+    const zip = new JSZip();
+    const folder = zip.folder(project.name) ?? zip;
+    for (const file of project.files) folder.file(file.name, file.content);
+    const blob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `${project.name}.zip`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="pt-2">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 w-full px-2 pb-1.5 text-[10px] font-mono font-semibold uppercase tracking-widest text-[--muted] hover:text-[--foreground] transition-colors"
+      >
+        <FolderOpen className="w-3 h-3" />
+        {"// projects"}
+        <span className={cn("ml-auto transition-transform", !open && "-rotate-90")}>
+          <ChevronRight className="w-3 h-3 rotate-90" />
+        </span>
+      </button>
+
+      {open && (
+        <>
+          {projects.length === 0 ? (
+            <p className="px-2 py-1 text-[10px] font-mono text-[--muted] italic">No saved projects</p>
+          ) : (
+            projects.slice(0, 6).map((p) => (
+              <div key={p.id} className="group flex items-center gap-1 px-2 py-1 rounded hover:bg-[--surface-raised] transition-colors">
+                <Link
+                  href="/code"
+                  className="flex-1 flex items-center gap-1.5 min-w-0"
+                  title={p.name}
+                >
+                  <Code2 className="w-3 h-3 text-[--muted] shrink-0" />
+                  <span className="text-[11px] font-mono text-[--muted] truncate group-hover:text-[--foreground]">{p.name}</span>
+                </Link>
+                <button onClick={(e) => handleDownload(e, p)} className="opacity-0 group-hover:opacity-100 p-0.5 text-[--muted] hover:text-[--accent] transition-all" title="Download">
+                  <Download className="w-3 h-3" />
+                </button>
+                <button onClick={(e) => handleDelete(e, p.id)} className="opacity-0 group-hover:opacity-100 p-0.5 text-[--muted] hover:text-[--destructive] transition-all" title="Delete">
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            ))
+          )}
+          {projects.length > 0 && (
+            <Link
+              href="/projects"
+              className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-mono text-[--accent] hover:underline"
+            >
+              <ChevronRight className="w-3 h-3" />
+              All projects ({projects.length})
+            </Link>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 // Desktop sidebar (visible md+)
 export function DesktopSidebar() {
@@ -82,6 +181,9 @@ export function DesktopSidebar() {
             </Link>
           );
         })}
+
+        {/* Saved Projects */}
+        <SidebarProjects />
 
         <div className="pt-3 pb-1">
           <p className="px-2 pb-1.5 text-[10px] font-mono font-semibold uppercase tracking-widest text-[--muted]">

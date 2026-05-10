@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import type { UIMessage } from "ai";
 import { cn } from "@/lib/utils";
 import { useUserId } from "@/lib/useUserId";
+import { upsertProject, type SavedProject } from "@/lib/projectStorage";
 import {
   Send,
   Loader2,
@@ -22,6 +23,12 @@ import {
   ChevronDown,
   Folder,
   MessageSquare,
+  Download,
+  Save,
+  Globe,
+  X,
+  Rocket,
+  ExternalLink,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -189,7 +196,300 @@ function PreviewPane({ files }: { files: CodeFile[] }) {
   );
 }
 
-function CodePane({ files }: { files: CodeFile[] }) {
+// ── ZIP download helper ────────────────────────────────────────────────────────
+
+async function downloadZip(files: CodeFile[], projectName: string) {
+  const JSZip = (await import("jszip")).default;
+  const zip = new JSZip();
+  const folder = zip.folder(projectName) ?? zip;
+  for (const file of files) {
+    folder.file(file.name, file.content);
+  }
+  const blob = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${projectName}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── Save / Name dialog ────────────────────────────────────────────────────────
+
+function SaveDialog({
+  defaultName,
+  onSave,
+  onCancel,
+}: {
+  defaultName: string;
+  onSave: (name: string, description: string) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(defaultName);
+  const [description, setDescription] = useState("");
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-sm rounded-xl border border-[--border] bg-[--surface] shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[--border]">
+          <div className="flex items-center gap-2">
+            <Save className="w-3.5 h-3.5 text-[--accent]" />
+            <span className="text-xs font-mono font-semibold text-[--foreground]">Save Project</span>
+          </div>
+          <button onClick={onCancel} className="text-[--muted] hover:text-[--foreground] transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="px-4 py-4 flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-mono uppercase tracking-wider text-[--muted]">Project name</label>
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && name.trim() && onSave(name.trim(), description)}
+              className="w-full bg-[--surface-raised] border border-[--border] rounded-lg px-3 py-2 text-sm font-mono text-[--foreground] outline-none focus:border-[--accent] transition-colors"
+              placeholder="my-awesome-project"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-mono uppercase tracking-wider text-[--muted]">Description (optional)</label>
+            <input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full bg-[--surface-raised] border border-[--border] rounded-lg px-3 py-2 text-sm font-mono text-[--foreground] outline-none focus:border-[--accent] transition-colors"
+              placeholder="What does this project do?"
+            />
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={onCancel}
+              className="flex-1 px-3 py-2 rounded-lg border border-[--border] text-xs font-mono text-[--muted] hover:text-[--foreground] hover:border-[--accent] transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => name.trim() && onSave(name.trim(), description)}
+              disabled={!name.trim()}
+              className="flex-1 px-3 py-2 rounded-lg bg-[--accent] text-xs font-mono transition-colors hover:bg-[--accent-hover] disabled:opacity-50"
+              style={{ color: "var(--on-accent)" }}
+            >
+              Save & Download
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Deploy modal ───────────────────────────────────────────────────────────────
+
+function DeployModal({ projectName, onClose }: { projectName: string; onClose: () => void }) {
+  const [domain, setDomain] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const vercelUrl = `https://vercel.com/new?template=other&name=${encodeURIComponent(projectName)}`;
+
+  const copyCommand = async () => {
+    await navigator.clipboard.writeText(`npx vercel --name ${projectName}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-xl border border-[--border] bg-[--surface] shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[--border]">
+          <div className="flex items-center gap-2">
+            <Rocket className="w-3.5 h-3.5 text-[--accent]" />
+            <span className="text-xs font-mono font-semibold text-[--foreground]">Deploy / Domain</span>
+          </div>
+          <button onClick={onClose} className="text-[--muted] hover:text-[--foreground] transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="px-4 py-4 flex flex-col gap-4">
+          {/* Step 1 — Download */}
+          <div className="flex flex-col gap-2">
+            <p className="text-[10px] font-mono uppercase tracking-wider text-[--muted]">Step 1 — Download your project</p>
+            <p className="text-xs font-mono text-[--foreground] leading-relaxed">
+              Save the ZIP and extract it locally, then initialize a git repo.
+            </p>
+          </div>
+
+          {/* Step 2 — Deploy to Vercel */}
+          <div className="flex flex-col gap-2">
+            <p className="text-[10px] font-mono uppercase tracking-wider text-[--muted]">Step 2 — Deploy to Vercel</p>
+            <a
+              href={vercelUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-[--border] bg-[--surface-raised] hover:border-[--accent] hover:bg-[--accent-dim] transition-colors text-xs font-mono text-[--foreground] hover:text-[--accent]"
+            >
+              <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+              Deploy on Vercel
+            </a>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-px bg-[--border]" />
+              <span className="text-[10px] font-mono text-[--muted]">or via CLI</span>
+              <div className="flex-1 h-px bg-[--border]" />
+            </div>
+            <button
+              onClick={copyCommand}
+              className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-[--border] bg-[--background] hover:border-[--accent] transition-colors text-xs font-mono text-[--muted] hover:text-[--foreground] text-left"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-[--success] shrink-0" /> : <Copy className="w-3.5 h-3.5 shrink-0" />}
+              <code className="flex-1">npx vercel --name {projectName}</code>
+            </button>
+          </div>
+
+          {/* Step 3 — Custom domain */}
+          <div className="flex flex-col gap-2">
+            <p className="text-[10px] font-mono uppercase tracking-wider text-[--muted]">Step 3 — Add custom domain</p>
+            <div className="flex gap-2">
+              <div className="flex items-center gap-2 flex-1 bg-[--surface-raised] border border-[--border] rounded-lg px-3 py-2 focus-within:border-[--accent] transition-colors">
+                <Globe className="w-3.5 h-3.5 text-[--muted] shrink-0" />
+                <input
+                  value={domain}
+                  onChange={(e) => setDomain(e.target.value)}
+                  placeholder="yourdomain.com"
+                  className="flex-1 bg-transparent text-xs font-mono text-[--foreground] outline-none placeholder:text-[--muted]"
+                />
+              </div>
+            </div>
+            {domain && (
+              <a
+                href={`https://vercel.com/docs/projects/domains/add-a-domain`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-[11px] font-mono text-[--accent] hover:underline"
+              >
+                <ExternalLink className="w-3 h-3" />
+                How to connect {domain} on Vercel
+              </a>
+            )}
+          </div>
+
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border border-[--border] text-xs font-mono text-[--muted] hover:text-[--foreground] hover:border-[--accent] transition-colors mt-1"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Project toolbar (Download + Save + Deploy) ─────────────────────────────────
+
+function ProjectToolbar({
+  files,
+  userId,
+  projectId,
+  projectName,
+  onProjectSaved,
+}: {
+  files: CodeFile[];
+  userId: string | null;
+  projectId: string | null;
+  projectName: string;
+  onProjectSaved: (project: SavedProject) => void;
+}) {
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showDeployModal, setShowDeployModal] = useState(false);
+  const [savedBadge, setSavedBadge] = useState(false);
+
+  const handleSaveAndDownload = (name: string, description: string) => {
+    setShowSaveDialog(false);
+    // Save to projects list
+    if (userId) {
+      const saved = upsertProject(userId, {
+        id: projectId ?? undefined,
+        name,
+        description,
+        files,
+      });
+      onProjectSaved(saved);
+      setSavedBadge(true);
+      setTimeout(() => setSavedBadge(false), 2500);
+    }
+    // Download ZIP
+    downloadZip(files, name);
+  };
+
+  if (files.length === 0) return null;
+
+  return (
+    <>
+      {showSaveDialog && (
+        <SaveDialog
+          defaultName={projectName}
+          onSave={handleSaveAndDownload}
+          onCancel={() => setShowSaveDialog(false)}
+        />
+      )}
+      {showDeployModal && (
+        <DeployModal
+          projectName={projectName}
+          onClose={() => setShowDeployModal(false)}
+        />
+      )}
+
+      <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-[--border] bg-[--surface] shrink-0">
+        <button
+          onClick={() => setShowSaveDialog(true)}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-[--border] bg-[--surface-raised] hover:border-[--accent] hover:bg-[--accent-dim] transition-colors text-[11px] font-mono"
+          style={{ color: savedBadge ? "var(--accent)" : "var(--muted)" }}
+          title="Save project & download ZIP"
+        >
+          {savedBadge ? <Check className="w-3 h-3" /> : <Save className="w-3 h-3" />}
+          <span className="hidden sm:inline">{savedBadge ? "Saved!" : "Save"}</span>
+        </button>
+
+        <button
+          onClick={() => downloadZip(files, projectName)}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-[--border] bg-[--surface-raised] hover:border-[--accent] hover:bg-[--accent-dim] transition-colors text-[11px] font-mono text-[--muted] hover:text-[--accent]"
+          title="Download ZIP"
+        >
+          <Download className="w-3 h-3" />
+          <span className="hidden sm:inline">Download ZIP</span>
+        </button>
+
+        <button
+          onClick={() => setShowDeployModal(true)}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-[--accent]/40 bg-[--accent-dim] hover:bg-[--accent] transition-colors text-[11px] font-mono ml-auto"
+          style={{ color: "var(--accent)" }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = "var(--on-accent)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = "var(--accent)"; }}
+          title="Deploy & connect domain"
+        >
+          <Rocket className="w-3 h-3" />
+          <span className="hidden sm:inline">Deploy</span>
+        </button>
+      </div>
+    </>
+  );
+}
+
+function CodePane({
+  files,
+  userId,
+  projectId,
+  projectName,
+  onProjectSaved,
+}: {
+  files: CodeFile[];
+  userId: string | null;
+  projectId: string | null;
+  projectName: string;
+  onProjectSaved: (p: SavedProject) => void;
+}) {
   const [activeFile, setActiveFile] = useState(0);
   const [activeTab, setActiveTab] = useState<"code" | "preview">("code");
 
@@ -213,7 +513,17 @@ function CodePane({ files }: { files: CodeFile[] }) {
   const file = files[safeIdx];
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Project action toolbar */}
+      <ProjectToolbar
+        files={files}
+        userId={userId}
+        projectId={projectId}
+        projectName={projectName}
+        onProjectSaved={onProjectSaved}
+      />
+
+      <div className="flex flex-1 min-h-0 overflow-hidden">
       {/* Desktop file tree sidebar */}
       <FileTreeSidebar files={files} activeFile={safeIdx} onSelect={setActiveFile} />
 
@@ -270,6 +580,7 @@ function CodePane({ files }: { files: CodeFile[] }) {
         ) : (
           <PreviewPane files={files} />
         )}
+      </div>
       </div>
     </div>
   );
@@ -643,7 +954,7 @@ function ChatPane({
           <span className="text-xs font-mono font-semibold text-[--foreground]">JP_CODE_EDITOR</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="hidden md:inline text-[11px] font-mono text-[--muted]">claude-sonnet-4-5</span>
+          <span className="hidden md:inline text-[11px] font-mono text-[--muted]">Claude O.G</span>
           {messages.length > 0 && (
             <button
               onClick={onClear}
@@ -744,10 +1055,17 @@ export function CodeEditorPanel() {
 
   const [input, setInput] = useState("");
   const [mobileTab, setMobileTab] = useState<"chat" | "code">("chat");
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [projectName, setProjectName] = useState("my-project");
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isStreaming = status === "streaming" || status === "submitted";
   const historyLoaded = useRef(false);
+
+  const handleProjectSaved = useCallback((p: SavedProject) => {
+    setProjectId(p.id);
+    setProjectName(p.name);
+  }, []);
 
   // Load per-user history
   useEffect(() => {
@@ -776,6 +1094,24 @@ export function CodeEditorPanel() {
     fileMap.set(f.name, f);
   }
   const activeFiles = Array.from(fileMap.values());
+
+  // Auto-save after each completed generation (streaming → idle transition)
+  const prevStreaming = useRef(false);
+  useEffect(() => {
+    const wasStreaming = prevStreaming.current;
+    prevStreaming.current = isStreaming;
+    if (wasStreaming && !isStreaming && activeFiles.length > 0 && userId) {
+      const saved = upsertProject(userId, {
+        id: projectId ?? undefined,
+        name: projectName,
+        description: "",
+        files: activeFiles,
+      });
+      if (!projectId) setProjectId(saved.id);
+    }
+  // activeFiles changes every render but we only want to trigger on isStreaming change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isStreaming, userId, projectId, projectName]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -863,7 +1199,13 @@ export function CodeEditorPanel() {
           />
         ) : (
           <div className="flex-1 overflow-hidden bg-[--background]">
-            <CodePane files={activeFiles} />
+            <CodePane
+              files={activeFiles}
+              userId={userId}
+              projectId={projectId}
+              projectName={projectName}
+              onProjectSaved={handleProjectSaved}
+            />
           </div>
         )}
       </div>
@@ -887,7 +1229,13 @@ export function CodeEditorPanel() {
           />
         </div>
         <div className="flex-1 min-w-0 overflow-hidden bg-[--background]">
-          <CodePane files={activeFiles} />
+          <CodePane
+            files={activeFiles}
+            userId={userId}
+            projectId={projectId}
+            projectName={projectName}
+            onProjectSaved={handleProjectSaved}
+          />
         </div>
       </div>
     </div>

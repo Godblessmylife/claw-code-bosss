@@ -57,18 +57,25 @@ export function ChatInput({ onSend, disabled, placeholder }: Props) {
           disabled={disabled}
           rows={1}
           placeholder={placeholder ?? "> ask anything…"}
-          className="flex-1 resize-none bg-transparent text-sm text-[--foreground] placeholder:text-[--muted] outline-none leading-relaxed min-h-[24px] max-h-[160px] py-0.5 font-mono"
+          className="flex-1 resize-none bg-transparent text-sm text-[--foreground] placeholder:text-[--muted] outline-none leading-relaxed py-0.5 font-mono"
+          style={{ minHeight: "24px", maxHeight: "120px" }}
         />
+        {/* Send button — always rendered with shrink-0 so it never disappears */}
         <button
           onClick={submit}
           disabled={disabled || !value.trim()}
           className={cn(
-            "flex items-center justify-center w-9 h-9 rounded-lg transition-colors shrink-0 active:scale-95",
+            "flex items-center justify-center rounded-lg transition-colors shrink-0 active:scale-95",
             value.trim() && !disabled
               ? "bg-[--accent] hover:bg-[--accent-hover]"
               : "bg-[--border] text-[--muted] cursor-not-allowed"
           )}
-          style={value.trim() && !disabled ? { color: "var(--on-accent)" } : undefined}
+          style={{
+            width: "36px",
+            height: "36px",
+            minWidth: "36px",
+            color: value.trim() && !disabled ? "var(--on-accent)" : undefined,
+          }}
           aria-label="Send message"
         >
           {disabled ? (
