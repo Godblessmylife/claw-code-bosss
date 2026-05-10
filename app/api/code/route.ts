@@ -6,7 +6,7 @@ export async function POST(req: Request) {
   const { messages }: { messages: UIMessage[] } = await req.json();
 
   const result = streamText({
-    model: anthropic("claude-sonnet-4-5"),
+    model: anthropic("claude-opus-4-5"),
     system: `You are JP Code v1.6.1 — an expert AI coding assistant and security-focused developer tool.
 
 ## CRITICAL RULES — READ CAREFULLY BEFORE EVERY RESPONSE
