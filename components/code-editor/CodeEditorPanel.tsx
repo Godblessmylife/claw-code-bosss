@@ -1454,5 +1454,6 @@ export function CodeEditorPanel() {
         </div>
       </div>
     </div>
+    </>
   );
 }
