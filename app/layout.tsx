@@ -13,10 +13,41 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const APP_URL = "https://claw-code-bosss.vercel.app";
+
 export const metadata: Metadata = {
   title: "JP Code v1.6.1 — AI Coding Assistant",
   description:
-    "JP Code — advanced AI coding agent powered by Claude. Write, debug, review and ship code faster.",
+    "JP Code — advanced AI coding agent powered by Claude Opus. Write, debug, review and ship production-quality code faster. Free, private, no login required.",
+  metadataBase: new URL(APP_URL),
+  icons: {
+    icon: "/icon.jpg",
+    apple: "/icon.jpg",
+  },
+  openGraph: {
+    title: "JP Code — AI Coding Assistant",
+    description:
+      "Write, debug and ship code with Claude Opus AI. Generate full projects, preview live, download ZIP, deploy to Vercel.",
+    url: APP_URL,
+    siteName: "JP Code",
+    images: [
+      {
+        url: "/og.jpg",
+        width: 1200,
+        height: 630,
+        alt: "JP Code — AI Coding Assistant",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "JP Code — AI Coding Assistant",
+    description:
+      "Generate production-quality code with Claude Opus AI. Free, private, no login.",
+    images: ["/og.jpg"],
+  },
 };
 
 export const viewport: Viewport = {

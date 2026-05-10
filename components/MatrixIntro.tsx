@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 
 // Duration constants (ms)
-const RAIN_DURATION = 2600;
-const FADE_DURATION = 600;
+const RAIN_DURATION = 2800;
+const FADE_DURATION = 500;
 const TOTAL_DURATION = RAIN_DURATION + FADE_DURATION;
 
-// Matrix characters — katakana + digits for authenticity
+// Katakana + digits + latin for authentic matrix look
 const CHARS =
   "アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -18,128 +18,132 @@ interface Column {
   length: number;
   chars: string[];
   opacity: number;
-  z: number; // 0–1, depth for 3-D perspective scaling
+  z: number; // 0.2–1.0 — depth for 3D perspective
 }
 
-function initColumns(canvas: HTMLCanvasElement): Column[] {
-  const cols: Column[] = [];
-  const baseSize = 16;
-  const count = Math.floor(canvas.width / baseSize) * 2;
+function makeChar() {
+  return CHARS[Math.floor(Math.random() * CHARS.length)];
+}
 
-  for (let i = 0; i < count; i++) {
-    const z = 0.2 + Math.random() * 0.8; // depth
-    const size = baseSize * z;
-    const length = Math.floor(6 + Math.random() * 18);
-    cols.push({
-      x: Math.random() * canvas.width,
-      y: -Math.random() * canvas.height,
-      speed: (1.5 + Math.random() * 3) * z,
-      length,
-      chars: Array.from({ length }, () =>
-        CHARS[Math.floor(Math.random() * CHARS.length)]
-      ),
-      opacity: 0.15 + Math.random() * 0.85,
+function buildColumns(w: number, h: number): Column[] {
+  const BASE = 14;
+  // Density: ~1 column per BASE px of width, doubled for depth layers
+  const count = Math.max(20, Math.floor((w / BASE) * 2));
+  return Array.from({ length: count }, () => {
+    const z = 0.2 + Math.random() * 0.8;
+    const len = Math.floor(6 + Math.random() * 20);
+    return {
+      x: Math.random() * w,
+      y: -(Math.random() * h),
+      speed: (1.2 + Math.random() * 3.5) * z,
+      length: len,
+      chars: Array.from({ length: len }, makeChar),
+      opacity: 0.2 + Math.random() * 0.8,
       z,
-    });
-  }
-  return cols;
+    };
+  });
 }
 
 export function MatrixIntro({ onDone }: { onDone: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [phase, setPhase] = useState<"rain" | "fade" | "done">("rain");
-  const doneRef = useRef(false);
+  const doneCalledRef = useRef(false);
 
-  // Schedule fade + done
+  // Phase timers
   useEffect(() => {
-    const fadeTimer = setTimeout(() => setPhase("fade"), RAIN_DURATION);
-    const doneTimer = setTimeout(() => {
-      if (!doneRef.current) {
-        doneRef.current = true;
+    const t1 = setTimeout(() => setPhase("fade"), RAIN_DURATION);
+    const t2 = setTimeout(() => {
+      if (!doneCalledRef.current) {
+        doneCalledRef.current = true;
         setPhase("done");
         onDone();
       }
     }, TOTAL_DURATION);
-    return () => {
-      clearTimeout(fadeTimer);
-      clearTimeout(doneTimer);
-    };
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [onDone]);
 
-  // Canvas animation
+  // Canvas rain loop
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Size canvas to full screen
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-    resize();
-    window.addEventListener("resize", resize);
-
-    const columns = initColumns(canvas);
+    let columns: Column[] = [];
     let raf: number;
     let lastTime = 0;
+
+    const resize = () => {
+      // Use actual device pixels for crisp rendering on HiDPI mobile screens
+      const dpr = window.devicePixelRatio || 1;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      canvas.width = vw * dpr;
+      canvas.height = vh * dpr;
+      canvas.style.width = vw + "px";
+      canvas.style.height = vh + "px";
+      ctx.scale(dpr, dpr);
+      // Rebuild columns after resize to fill new dimensions
+      columns = buildColumns(vw, vh);
+    };
+
+    resize();
+    window.addEventListener("resize", resize, { passive: true });
 
     const draw = (now: number) => {
       const dt = Math.min(now - lastTime, 50);
       lastTime = now;
 
-      // Translucent black overlay for trail effect
-      ctx.fillStyle = "rgba(0,0,0,0.18)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const vw = canvas.width / (window.devicePixelRatio || 1);
+      const vh = canvas.height / (window.devicePixelRatio || 1);
+
+      // Fading trail — semi-transparent black fill
+      ctx.fillStyle = "rgba(0,0,0,0.16)";
+      ctx.fillRect(0, 0, vw, vh);
 
       for (const col of columns) {
-        const baseSize = 16 * col.z;
-        ctx.font = `${baseSize}px "Geist Mono", monospace`;
+        const size = 14 * col.z;
+        ctx.font = `${size}px "Geist Mono", "Courier New", monospace`;
 
-        col.chars.forEach((ch, idx) => {
-          const cy = col.y - idx * baseSize;
-          if (cy < -baseSize || cy > canvas.height + baseSize) return;
+        for (let i = 0; i < col.chars.length; i++) {
+          const cy = col.y - i * size;
+          if (cy < -size * 2 || cy > vh + size) continue;
 
-          const isHead = idx === 0;
-          // Perspective: closer cols (high z) brighter
-          const brightness = col.z;
-          const alpha = isHead ? 1 : col.opacity * (1 - idx / col.length) * brightness;
+          const isHead = i === 0;
+          const alpha = isHead
+            ? 1
+            : col.opacity * (1 - i / col.chars.length) * col.z;
 
           if (isHead) {
-            // Bright white head with glow
-            ctx.shadowBlur = 12 * col.z;
+            ctx.shadowBlur = 14 * col.z;
             ctx.shadowColor = "#00ff41";
-            ctx.fillStyle = `rgba(220,255,220,${alpha})`;
+            ctx.fillStyle = `rgba(220,255,220,${alpha.toFixed(2)})`;
           } else {
-            ctx.shadowBlur = 4 * col.z;
+            const g = Math.floor(160 + 95 * col.z);
+            ctx.shadowBlur = 5 * col.z;
             ctx.shadowColor = "#00ff41";
-            ctx.fillStyle = `rgba(0,${Math.floor(180 + 75 * brightness)},${Math.floor(40 * brightness)},${alpha})`;
+            ctx.fillStyle = `rgba(0,${g},30,${alpha.toFixed(2)})`;
           }
 
-          ctx.fillText(ch, col.x, cy);
+          ctx.fillText(col.chars[i], col.x, cy);
 
-          // Randomly mutate characters
-          if (Math.random() < 0.02) {
-            col.chars[idx] = CHARS[Math.floor(Math.random() * CHARS.length)];
-          }
-        });
-
+          // Randomly mutate chars for flicker effect
+          if (Math.random() < 0.015) col.chars[i] = makeChar();
+        }
         ctx.shadowBlur = 0;
 
         // Advance column
         col.y += col.speed * (dt / 16);
 
-        // Reset when off-screen
-        if (col.y - col.length * (16 * col.z) > canvas.height) {
-          col.y = -Math.random() * 60;
-          col.x = Math.random() * canvas.width;
+        // Reset when fully off-screen
+        if (col.y - col.chars.length * size > vh) {
+          col.y = -(Math.random() * 80);
+          col.x = Math.random() * vw;
           col.z = 0.2 + Math.random() * 0.8;
-          const len = Math.floor(6 + Math.random() * 18);
+          const len = Math.floor(6 + Math.random() * 20);
           col.length = len;
-          col.chars = Array.from({ length: len }, () =>
-            CHARS[Math.floor(Math.random() * CHARS.length)]
-          );
+          col.chars = Array.from({ length: len }, makeChar);
+          col.speed = (1.2 + Math.random() * 3.5) * col.z;
         }
       }
 
@@ -157,50 +161,117 @@ export function MatrixIntro({ onDone }: { onDone: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center"
+      aria-hidden
       style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
         background: "#000",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         opacity: phase === "fade" ? 0 : 1,
         transition: phase === "fade" ? `opacity ${FADE_DURATION}ms ease-in-out` : "none",
         pointerEvents: "all",
+        // Use dvh so it covers the full dynamic viewport on mobile (above browser chrome)
+        height: "100dvh",
+        width: "100dvw",
       }}
     >
+      {/* Full-screen canvas */}
       <canvas
         ref={canvasRef}
-        className="absolute inset-0"
-        style={{ display: "block" }}
-        aria-hidden
+        style={{ position: "absolute", inset: 0, display: "block" }}
       />
 
-      {/* Center logo overlay */}
+      {/* Center overlay — scales with viewport */}
       <div
-        className="relative z-10 flex flex-col items-center gap-3 select-none"
-        style={{ textShadow: "0 0 24px #00ff41, 0 0 60px #00ff41" }}
+        style={{
+          position: "relative",
+          zIndex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "clamp(8px, 2vw, 16px)",
+          userSelect: "none",
+          padding: "0 16px",
+          textAlign: "center",
+        }}
       >
+        {/* App icon */}
         <div
-          className="text-4xl md:text-6xl font-mono font-black tracking-[0.25em]"
-          style={{ color: "#00ff41" }}
+          style={{
+            width: "clamp(56px, 14vw, 96px)",
+            height: "clamp(56px, 14vw, 96px)",
+            borderRadius: "20%",
+            overflow: "hidden",
+            border: "2px solid #00ff41",
+            boxShadow: "0 0 24px rgba(0,255,65,0.6), 0 0 60px rgba(0,255,65,0.2)",
+            marginBottom: "4px",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icon.jpg" alt="JP Code" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        </div>
+
+        {/* Title */}
+        <div
+          style={{
+            fontFamily: '"Geist Mono", "Courier New", monospace',
+            fontWeight: 900,
+            fontSize: "clamp(28px, 8vw, 56px)",
+            letterSpacing: "0.2em",
+            color: "#00ff41",
+            textShadow: "0 0 20px #00ff41, 0 0 60px rgba(0,255,65,0.5)",
+            lineHeight: 1.1,
+          }}
         >
           JP_CODE
         </div>
+
+        {/* Subtitle */}
         <div
-          className="text-xs md:text-sm font-mono tracking-[0.4em] uppercase"
-          style={{ color: "rgba(0,255,65,0.7)" }}
+          style={{
+            fontFamily: '"Geist Mono", "Courier New", monospace',
+            fontSize: "clamp(9px, 2.5vw, 13px)",
+            letterSpacing: "0.35em",
+            textTransform: "uppercase",
+            color: "rgba(0,255,65,0.65)",
+            textShadow: "0 0 10px rgba(0,255,65,0.4)",
+          }}
         >
           AI Coding Assistant
         </div>
-        <div className="flex items-center gap-1.5 mt-2">
+
+        {/* Loading dots */}
+        <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
           {[0, 1, 2].map((i) => (
             <span
               key={i}
-              className="w-1.5 h-1.5 rounded-full"
               style={{
+                width: 7,
+                height: 7,
+                borderRadius: "50%",
                 background: "#00ff41",
-                animation: `matrix-dot 1s ${i * 0.25}s ease-in-out infinite alternate`,
                 boxShadow: "0 0 8px #00ff41",
+                animation: `matrix-dot 0.9s ${i * 0.22}s ease-in-out infinite alternate`,
+                display: "block",
               }}
             />
           ))}
+        </div>
+
+        {/* Version */}
+        <div
+          style={{
+            fontFamily: '"Geist Mono", "Courier New", monospace',
+            fontSize: "clamp(8px, 2vw, 10px)",
+            color: "rgba(0,255,65,0.35)",
+            letterSpacing: "0.2em",
+            marginTop: "2px",
+          }}
+        >
+          v1.6.1
         </div>
       </div>
     </div>
