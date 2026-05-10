@@ -173,12 +173,8 @@ function PreviewPane({ files }: { files: CodeFile[] }) {
           </p>
         </div>
       </div>
-    </div>
-    </>
-  );
-}
-
-
+    );
+  }
 
   const blob = new Blob([html], { type: "text/html" });
   const url = URL.createObjectURL(blob);
