@@ -18,9 +18,9 @@ const THEMES: { id: Theme; label: string; color: string; animated?: boolean }[] 
 
 // ── Share modal ───────────────────────────────────────────────────────────────
 
-const APP_URL = "https://claw-code-bosss.vercel.app";
+const APP_URL = "https://JPCODE.COM";
 const APP_TITLE = "JP Code — AI Coding Assistant";
-const APP_DESC = "Write, debug and ship code with Claude Opus AI. Free, private, no login.";
+const APP_DESC = "Write, debug and ship code with Claude O.G AI. Free, private, no login.";
 
 const SHARE_LINKS = [
   {
