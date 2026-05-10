@@ -1038,6 +1038,7 @@ function ChatPane({
   onKeyDown,
   onInput,
 }: ChatPaneProps) {
+  const { lang } = useLang();
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
