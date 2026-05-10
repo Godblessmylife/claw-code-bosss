@@ -954,7 +954,7 @@ function ChatPane({
           <span className="text-xs font-mono font-semibold text-[--foreground]">JP_CODE_EDITOR</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="hidden md:inline text-[11px] font-mono text-[--muted]">claude-sonnet-4-5</span>
+          <span className="hidden md:inline text-[11px] font-mono text-[--muted]">Claude O.G</span>
           {messages.length > 0 && (
             <button
               onClick={onClear}
@@ -1067,24 +1067,6 @@ export function CodeEditorPanel() {
     setProjectName(p.name);
   }, []);
 
-  // Auto-save project to localStorage immediately after streaming finishes
-  const prevStreaming = useRef(false);
-  useEffect(() => {
-    const wasStreaming = prevStreaming.current;
-    prevStreaming.current = isStreaming;
-    if (wasStreaming && !isStreaming && activeFiles.length > 0 && userId) {
-      const saved = upsertProject(userId, {
-        id: projectId ?? undefined,
-        name: projectName,
-        description: "",
-        files: activeFiles,
-      });
-      // Only update projectId first time (auto-created)
-      if (!projectId) setProjectId(saved.id);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isStreaming]);
-
   // Load per-user history
   useEffect(() => {
     if (!userId || historyLoaded.current) return;
@@ -1112,6 +1094,24 @@ export function CodeEditorPanel() {
     fileMap.set(f.name, f);
   }
   const activeFiles = Array.from(fileMap.values());
+
+  // Auto-save after each completed generation (streaming → idle transition)
+  const prevStreaming = useRef(false);
+  useEffect(() => {
+    const wasStreaming = prevStreaming.current;
+    prevStreaming.current = isStreaming;
+    if (wasStreaming && !isStreaming && activeFiles.length > 0 && userId) {
+      const saved = upsertProject(userId, {
+        id: projectId ?? undefined,
+        name: projectName,
+        description: "",
+        files: activeFiles,
+      });
+      if (!projectId) setProjectId(saved.id);
+    }
+  // activeFiles changes every render but we only want to trigger on isStreaming change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isStreaming, userId, projectId, projectName]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });

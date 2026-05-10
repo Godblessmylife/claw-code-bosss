@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Maximize2, Minimize2, Palette, Shield, Activity, Share2, X, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/langContext";
 
 type Theme = "matrix" | "crimson" | "cyan" | "amber" | "white" | "aurora";
 
@@ -202,6 +203,52 @@ function Clock() {
   return <span className="text-[11px] font-mono text-[--muted] tabular-nums">{time}</span>;
 }
 
+// ── Language toggle ───────────────────────────────────────────────────────────
+
+function LangToggle() {
+  const { lang, setLang } = useLang();
+  const isRu = lang === "ru";
+
+  return (
+    <button
+      onClick={() => setLang(isRu ? "en" : "ru")}
+      title={isRu ? "Switch to English" : "Переключить на русский"}
+      className="relative flex items-center gap-0 rounded-full border text-[10px] font-mono font-bold overflow-hidden transition-all duration-200"
+      style={{
+        borderColor: isRu ? "var(--accent)" : "var(--border)",
+        background: isRu ? "var(--accent-dim)" : "var(--surface-raised)",
+        padding: 0,
+        height: "26px",
+        width: "60px",
+      }}
+    >
+      {/* Sliding pill */}
+      <span
+        className="absolute top-[2px] h-[20px] w-[28px] rounded-full transition-all duration-200"
+        style={{
+          background: "var(--accent)",
+          left: isRu ? "calc(100% - 30px)" : "2px",
+          opacity: 0.9,
+        }}
+      />
+      <span
+        className="relative z-10 flex-1 text-center transition-colors duration-200"
+        style={{ color: !isRu ? "var(--on-accent)" : "var(--muted)" }}
+      >
+        EN
+      </span>
+      <span
+        className="relative z-10 flex-1 text-center transition-colors duration-200"
+        style={{ color: isRu ? "var(--on-accent)" : "var(--muted)" }}
+      >
+        RU
+      </span>
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const THEME_KEY = "jp_code_theme";
 
 function getSavedTheme(): Theme {
@@ -377,6 +424,9 @@ export function TopBar() {
             </div>
           )}
         </div>
+
+        {/* Language toggle */}
+        <LangToggle />
 
         {/* Share */}
         <button

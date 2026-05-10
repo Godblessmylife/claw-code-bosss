@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useUserId } from "@/lib/useUserId";
-import { loadProjects, deleteProject, type SavedProject } from "@/lib/projectStorage";
+import { loadProjects, deleteProject, type SavedProject, type SavedFile } from "@/lib/projectStorage";
+import { useLang } from "@/lib/langContext";
 import { cn } from "@/lib/utils";
 import {
   FolderOpen,
@@ -16,6 +17,9 @@ import {
   Globe,
   Check,
   Copy,
+  Eye,
+  X,
+  Play,
 } from "lucide-react";
 
 function formatDate(ms: number) {
@@ -44,9 +48,108 @@ async function downloadProjectZip(project: SavedProject) {
   URL.revokeObjectURL(url);
 }
 
+// ── Code viewer modal ─────────────────────────────────────────────────────────
+
+function buildPreviewHtml(files: SavedFile[]): string {
+  const html = files.find((f) => f.language === "html" || f.name.endsWith(".html"));
+  const css  = files.find((f) => f.language === "css"  || f.name.endsWith(".css"));
+  const js   = files.find((f) => ["javascript","js"].includes(f.language) || f.name.endsWith(".js"));
+  if (!html && !css && !js) return "";
+  if (html) {
+    let doc = html.content;
+    if (css && !doc.includes("<style>"))  doc = doc.replace("</head>", `<style>${css.content}</style></head>`);
+    if (js  && !doc.includes("<script>")) doc = doc.replace("</body>", `<script>${js.content}</script></body>`);
+    return doc;
+  }
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8">${css ? `<style>${css.content}</style>` : ""}</head><body>${js ? `<script>${js.content}</script>` : ""}</body></html>`;
+}
+
+function CodeViewerModal({ project, onClose }: { project: SavedProject; onClose: () => void }) {
+  const [activeFile, setActiveFile] = useState(0);
+  const [tab, setTab] = useState<"code" | "preview">("code");
+  const file = project.files[activeFile];
+  const previewHtml = buildPreviewHtml(project.files);
+  const previewUrl  = previewHtml ? URL.createObjectURL(new Blob([previewHtml], { type: "text/html" })) : "";
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-[--background]">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-2.5 border-b border-[--border] bg-[--surface] shrink-0">
+        <Code2 className="w-3.5 h-3.5 text-[--accent]" />
+        <span className="text-xs font-mono font-bold text-[--foreground] flex-1 truncate">{project.name}</span>
+        {/* Tab switcher */}
+        <div className="flex rounded border border-[--border] overflow-hidden text-[10px] font-mono">
+          <button
+            onClick={() => setTab("code")}
+            className={cn("px-3 py-1.5 transition-colors", tab === "code" ? "bg-[--accent-dim] text-[--accent]" : "text-[--muted] hover:text-[--foreground]")}
+          >
+            Code
+          </button>
+          {previewUrl && (
+            <button
+              onClick={() => setTab("preview")}
+              className={cn("px-3 py-1.5 border-l border-[--border] transition-colors", tab === "preview" ? "bg-[--accent-dim] text-[--accent]" : "text-[--muted] hover:text-[--foreground]")}
+            >
+              <Play className="w-3 h-3 inline mr-1" />
+              Run
+            </button>
+          )}
+        </div>
+        <button onClick={onClose} className="p-1.5 rounded hover:bg-[--surface-raised] text-[--muted] hover:text-[--foreground] transition-colors">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        {/* File tree sidebar */}
+        <div className="hidden md:flex flex-col w-44 shrink-0 border-r border-[--border] bg-[--surface] overflow-y-auto">
+          {project.files.map((f, i) => (
+            <button
+              key={i}
+              onClick={() => { setActiveFile(i); setTab("code"); }}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 text-[11px] font-mono text-left border-b border-[--border-subtle] last:border-0 transition-colors",
+                i === activeFile ? "bg-[--accent-dim] text-[--accent]" : "text-[--muted] hover:bg-[--surface-raised] hover:text-[--foreground]"
+              )}
+            >
+              <FileText className="w-3 h-3 shrink-0" />
+              <span className="truncate">{f.name.split("/").pop()}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Mobile file tabs */}
+        <div className="md:hidden flex overflow-x-auto border-b border-[--border] bg-[--surface] absolute top-[44px] left-0 right-0">
+          {project.files.map((f, i) => (
+            <button key={i} onClick={() => { setActiveFile(i); setTab("code"); }}
+              className={cn("shrink-0 px-3 py-2 text-[11px] font-mono border-b-2 transition-colors",
+                i === activeFile ? "border-[--accent] text-[--accent]" : "border-transparent text-[--muted]")}>
+              {f.name.split("/").pop()}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        {tab === "preview" && previewUrl ? (
+          <iframe key={previewUrl} src={previewUrl} title="Preview" sandbox="allow-scripts" className="flex-1 w-full border-0 bg-white" />
+        ) : (
+          <div className="flex-1 overflow-auto bg-[--background]">
+            <pre className="p-4 text-xs font-mono text-[--foreground] leading-relaxed">
+              <code>{file?.content}</code>
+            </pre>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function ProjectCard({ project, onDelete }: { project: SavedProject; onDelete: () => void }) {
   const [showFiles, setShowFiles] = useState(false);
   const [showDeploy, setShowDeploy] = useState(false);
+  const [showViewer, setShowViewer] = useState(false);
   const [domain, setDomain] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -59,6 +162,8 @@ function ProjectCard({ project, onDelete }: { project: SavedProject; onDelete: (
   };
 
   return (
+    <>
+    {showViewer && <CodeViewerModal project={project} onClose={() => setShowViewer(false)} />}
     <div className="rounded-xl border border-[--border] bg-[--surface] overflow-hidden hover:border-[--accent]/40 transition-colors">
       {/* Card header */}
       <div className="flex items-start gap-3 p-4">
@@ -145,6 +250,14 @@ function ProjectCard({ project, onDelete }: { project: SavedProject; onDelete: (
       {/* Actions */}
       <div className="flex items-center gap-2 px-4 py-2.5 border-t border-[--border] bg-[--surface-raised]">
         <button
+          onClick={() => setShowViewer(true)}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-[--accent]/40 bg-[--accent-dim] text-[11px] font-mono text-[--accent] hover:border-[--accent] transition-colors"
+        >
+          <Eye className="w-3 h-3" />
+          View
+        </button>
+
+        <button
           onClick={() => setShowFiles((v) => !v)}
           className={cn(
             "flex items-center gap-1.5 px-2.5 py-1.5 rounded border text-[11px] font-mono transition-colors",
@@ -187,11 +300,13 @@ function ProjectCard({ project, onDelete }: { project: SavedProject; onDelete: (
         </button>
       </div>
     </div>
+    </>
   );
 }
 
 export default function ProjectsPage() {
   const userId = useUserId();
+  const { lang } = useLang();
   const [projects, setProjects] = useState<SavedProject[]>([]);
 
   useEffect(() => {
@@ -211,7 +326,7 @@ export default function ProjectsPage() {
       <div className="flex items-center justify-between px-5 py-4 border-b border-[--border] bg-[--surface] shrink-0">
         <div className="flex items-center gap-2">
           <FolderOpen className="w-4 h-4 text-[--accent]" />
-          <span className="text-sm font-mono font-semibold text-[--foreground]">My Projects</span>
+          <span className="text-sm font-mono font-semibold text-[--foreground]">{lang === "ru" ? "Мои Проекты" : "My Projects"}</span>
           {projects.length > 0 && (
             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[--accent-dim] border border-[--accent]/30 text-[--accent]">
               {projects.length}
@@ -236,10 +351,13 @@ export default function ProjectsPage() {
           <div className="flex flex-col items-center justify-center h-full gap-4 text-center py-16">
             <FolderOpen className="w-12 h-12 text-[--muted]" />
             <div>
-              <p className="text-sm font-mono font-semibold text-[--foreground] mb-1">No projects yet</p>
+              <p className="text-sm font-mono font-semibold text-[--foreground] mb-1">
+                {lang === "ru" ? "Проектов пока нет" : "No projects yet"}
+              </p>
               <p className="text-xs font-mono text-[--muted] max-w-xs leading-relaxed">
-                Go to Code Editor, generate code, then click{" "}
-                <span className="text-[--accent]">Save</span> to save your first project.
+                {lang === "ru"
+                  ? "Перейди в Code Editor, сгенерируй код — проект сохранится автоматически."
+                  : "Go to Code Editor, generate code — the project saves automatically."}
               </p>
             </div>
             <a

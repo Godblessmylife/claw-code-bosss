@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { MatrixIntro } from "./MatrixIntro";
+import { LangProvider } from "@/lib/langContext";
 
 export function AppWithIntro({ children }: { children: React.ReactNode }) {
   // Show intro only once per browser session (not on every navigation)
@@ -17,7 +18,7 @@ export function AppWithIntro({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <>
+    <LangProvider>
       {showIntro && <MatrixIntro onDone={handleDone} />}
       <div
         style={{
@@ -30,6 +31,6 @@ export function AppWithIntro({ children }: { children: React.ReactNode }) {
       >
         {children}
       </div>
-    </>
+    </LangProvider>
   );
 }

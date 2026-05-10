@@ -5,24 +5,18 @@ import {
   Code2,
   MessageSquare,
   Briefcase,
-  Zap,
   Lock,
-  Cpu,
-  Globe,
   GitBranch,
   Terminal,
   ChevronRight,
   Info,
-  Bot,
   Rocket,
   FolderOpen,
   Palette,
   Download,
-  Languages,
-  Database,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useLang } from "@/lib/langContext";
 
 // ── Telegram animated button ──────────────────────────────────────────────────
 
@@ -86,8 +80,8 @@ function TelegramButton() {
 const BILINGUAL_FEATURES = [
   {
     icon: MessageSquare,
-    en: { title: "AI Chat Assistant", desc: "Conversational AI powered by Claude Opus. Ask anything — code, architecture, debugging, security, or best practices. Full conversation history per user." },
-    ru: { title: "ИИ Чат Ассистент", desc: "Разговорный ИИ на базе Claude Opus. Спрашивай о коде, архитектуре, отладке, безопасности. Полная история разговоров для каждого пользователя." },
+    en: { title: "AI Chat Assistant", desc: "Conversational AI powered by Claude O.G. Ask anything — code, architecture, debugging, security, or best practices. Full conversation history per user." },
+    ru: { title: "ИИ Чат Ассистент", desc: "Разговорный ИИ на базе Claude O.G. Спрашивай о коде, архитектуре, отладке, безопасности. Полная история разговоров для каждого пользователя." },
     href: "/chat",
   },
   {
@@ -136,12 +130,6 @@ const BILINGUAL_FEATURES = [
 
 const TECH_STACK = [
   ["Frontend",   "Next.js 16, React 19, Tailwind CSS v4"],
-  ["AI Model",   "Claude Opus (claude-opus-4-5)"],
-  ["AI SDK",     "Vercel AI SDK v6"],
-  ["Storage",    "Per-user localStorage — no server needed"],
-  ["Auth",       "Anonymous user IDs — no login required"],
-  ["Themes",     "6 themes: Matrix, Crimson, Cyan, Amber, White, Aurora"],
-  ["Deploy",     "Vercel — one-click deploy + custom domain"],
 ];
 
 const PRIVACY_NOTES = [
@@ -152,7 +140,7 @@ const PRIVACY_NOTES = [
 ];
 
 export default function InfoPage() {
-  const [lang, setLang] = useState<"en" | "ru">("en");
+  const { lang } = useLang();
 
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-[--background]">
@@ -165,14 +153,7 @@ export default function InfoPage() {
         <span className="text-[10px] font-mono text-[--muted] border border-[--border] px-1.5 py-0.5 rounded">
           v1.6.1
         </span>
-        {/* Language toggle */}
-        <button
-          onClick={() => setLang((l) => l === "en" ? "ru" : "en")}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-[--border] bg-[--surface-raised] hover:border-[--accent] hover:text-[--accent] text-[--muted] text-[10px] font-mono transition-colors"
-        >
-          <Languages className="w-3 h-3" />
-          {lang === "en" ? "RU" : "EN"}
-        </button>
+
       </div>
 
       <div className="px-4 md:px-6 py-6 space-y-8 max-w-2xl">
@@ -186,14 +167,14 @@ export default function InfoPage() {
             <div>
               <h2 className="text-sm font-mono font-bold text-[--accent] terminal-cursor">JP_CODE</h2>
               <p className="text-[11px] font-mono text-[--muted]">
-                {lang === "en" ? "AI Coding Assistant · Claude Opus" : "ИИ Помощник по Коду · Claude Opus"}
+                {lang === "en" ? "AI Coding Assistant · Claude O.G" : "ИИ Помощник по Коду · Claude O.G"}
               </p>
             </div>
           </div>
           <p className="text-sm font-mono text-[--foreground] leading-relaxed border-l-2 border-[--accent] pl-4">
             {lang === "en"
-              ? "JP Code is an advanced AI-powered coding workspace. Write code, debug issues, generate entire projects, and automate business workflows — all in a sleek terminal-inspired interface powered by Claude Opus."
-              : "JP Code — продвинутое рабочее пространство на базе ИИ. Пиши код, отлаживай, генерируй целые проекты и автоматизируй бизнес-процессы — всё в стильном терминальном интерфейсе на Claude Opus."}
+              ?             "JP Code is an advanced AI-powered coding workspace. Write code, debug issues, generate entire projects, and automate business workflows — all in a sleek terminal-inspired interface powered by Claude O.G."
+              : "JP Code — продвинутое рабочее пространство на базе ИИ. Пиши код, отлаживай, генерируй целые проекты и автоматизируй бизнес-процессы — всё в стильном терминальном интерфейсе на Claude O.G."}
           </p>
         </section>
 
@@ -235,23 +216,7 @@ export default function InfoPage() {
           </div>
         </section>
 
-        {/* Tech stack */}
-        <section>
-          <div className="flex items-center gap-2 mb-3">
-            <Cpu className="w-3.5 h-3.5 text-[--muted]" />
-            <p className="text-[10px] font-mono font-semibold uppercase tracking-widest text-[--muted]">
-              {"// tech_stack"}
-            </p>
-          </div>
-          <div className="rounded-xl border border-[--border] bg-[--surface] overflow-hidden">
-            {TECH_STACK.map(([k, v]) => (
-              <div key={k} className="flex items-start gap-4 px-4 py-3 border-b border-[--border-subtle] last:border-0">
-                <span className="text-[11px] font-mono text-[--muted] w-24 shrink-0">{k}</span>
-                <span className="text-[11px] font-mono text-[--foreground] leading-relaxed">{v}</span>
-              </div>
-            ))}
-          </div>
-        </section>
+
 
         {/* Privacy */}
         <section>
@@ -285,7 +250,7 @@ export default function InfoPage() {
             {[
               ["product",   "JP Code"],
               ["version",   "1.6.1"],
-              ["model",     "Claude Opus (claude-opus-4-5)"],
+              ["model",     "Claude O.G"],
               ["framework", "Next.js 16 + React 19"],
               ["status",    "ONLINE"],
             ].map(([k, v]) => (
