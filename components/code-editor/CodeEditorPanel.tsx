@@ -7,6 +7,7 @@ import type { UIMessage } from "ai";
 import { cn } from "@/lib/utils";
 import { useUserId } from "@/lib/useUserId";
 import { upsertProject, type SavedProject } from "@/lib/projectStorage";
+import { useLang } from "@/lib/langContext";
 import {
   Send,
   Loader2,
@@ -172,8 +173,12 @@ function PreviewPane({ files }: { files: CodeFile[] }) {
           </p>
         </div>
       </div>
-    );
-  }
+    </div>
+    </>
+  );
+}
+
+
 
   const blob = new Blob([html], { type: "text/html" });
   const url = URL.createObjectURL(blob);
@@ -642,46 +647,50 @@ function MsgBubble({ msg }: { msg: UIMessage }) {
 // ── Generation progress component ─────────────────────────────────────────────
 
 const GENERATION_STEPS = [
-  { label: "Analyzing request", sub: "Reading conversation context…" },
-  { label: "Planning structure", sub: "Deciding which files to create or modify…" },
-  { label: "Writing code", sub: "Generating production-quality code…" },
-  { label: "Reviewing output", sub: "Checking for errors and best practices…" },
+  { label: "Analyzing request",  sub: "Reading context and requirements…"      },
+  { label: "Planning structure", sub: "Deciding files to create or modify…"    },
+  { label: "Writing code",       sub: "Generating production-quality code…"    },
+  { label: "Finalizing",         sub: "Completing files and checking output…"  },
 ];
 
-function GenerationProgress({ fileCount }: { fileCount: number }) {
+function GenerationProgress({
+  fileCount,
+  liveFiles,
+}: {
+  fileCount: number;
+  liveFiles: CodeFile[];
+}) {
   const [stepIdx, setStepIdx] = useState(0);
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    // Advance progress bar smoothly
-    const interval = setInterval(() => {
+    const bar = setInterval(() => {
       setProgress((p) => {
-        if (p >= 95) return p; // stall before 100 — model finishes it
-        return p + Math.random() * 4;
+        if (p >= 92) return p;
+        return p + Math.random() * 3.5;
       });
-    }, 300);
-
-    // Cycle through status steps
-    const stepInterval = setInterval(() => {
+    }, 280);
+    const step = setInterval(() => {
       setStepIdx((i) => Math.min(i + 1, GENERATION_STEPS.length - 1));
-    }, 2200);
-
-    return () => {
-      clearInterval(interval);
-      clearInterval(stepInterval);
-    };
+    }, 2400);
+    return () => { clearInterval(bar); clearInterval(step); };
   }, []);
 
-  const step = GENERATION_STEPS[stepIdx];
+  // Once files start appearing, jump to "Writing code" step
+  useEffect(() => {
+    if (liveFiles.length > 0 && stepIdx < 2) setStepIdx(2);
+  }, [liveFiles.length, stepIdx]);
+
+  const currentStep = GENERATION_STEPS[stepIdx];
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-[--border] bg-[--surface] px-4 py-3.5 mx-4 my-2">
-      {/* Header row */}
+    <div className="flex flex-col gap-3 rounded-xl border border-[--border] bg-[--surface] px-4 py-3.5 mx-4 my-2">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Loader2 className="w-3.5 h-3.5 text-[--accent] animate-spin shrink-0" />
           <span className="text-xs font-mono font-semibold text-[--foreground]">
-            {step.label}
+            {currentStep.label}
           </span>
         </div>
         {fileCount > 0 && (
@@ -692,35 +701,44 @@ function GenerationProgress({ fileCount }: { fileCount: number }) {
       </div>
 
       {/* Progress bar */}
-      <div className="h-1 w-full rounded-full bg-[--border] overflow-hidden">
+      <div className="h-[3px] w-full rounded-full bg-[--border] overflow-hidden">
         <div
           className="h-full rounded-full bg-[--accent] transition-all duration-300 ease-out"
-          style={{ width: `${Math.min(progress, 95)}%` }}
+          style={{ width: `${Math.min(progress, 92)}%` }}
         />
       </div>
 
       {/* Sub-label */}
-      <p className="text-[10px] font-mono text-[--muted] leading-relaxed -mt-2">
-        {step.sub}
-      </p>
+      <p className="text-[10px] font-mono text-[--muted]">{currentStep.sub}</p>
+
+      {/* Live file chips — appear as files are parsed during streaming */}
+      {liveFiles.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 pt-0.5">
+          {liveFiles.map((f, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-1 px-2 py-0.5 rounded border border-[--accent]/30 bg-[--accent-dim] text-[10px] font-mono text-[--accent]"
+            >
+              <FileText className="w-2.5 h-2.5 shrink-0" />
+              {f.name.split("/").pop()}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Step dots */}
-      <div className="flex items-center gap-2 -mt-1">
-        {GENERATION_STEPS.map((s, i) => (
+      <div className="flex items-center gap-2">
+        {GENERATION_STEPS.map((_, i) => (
           <div key={i} className="flex items-center gap-1.5">
             <span
               className={cn(
                 "w-1.5 h-1.5 rounded-full transition-colors duration-300",
-                i < stepIdx
-                  ? "bg-[--accent]"
-                  : i === stepIdx
-                  ? "bg-[--accent] animate-pulse"
-                  : "bg-[--border]"
+                i < stepIdx  ? "bg-[--accent]"
+                : i === stepIdx ? "bg-[--accent] animate-pulse"
+                : "bg-[--border]"
               )}
             />
-            {i < GENERATION_STEPS.length - 1 && (
-              <span className="w-4 h-px bg-[--border]" />
-            )}
+            {i < GENERATION_STEPS.length - 1 && <span className="w-4 h-px bg-[--border]" />}
           </div>
         ))}
       </div>
@@ -892,6 +910,157 @@ function MobileFileTabs({
   );
 }
 
+// ── Project preferences modal ─────────────────────────────────────────────────
+
+interface ProjectPrefs {
+  complexity: "simple" | "medium" | "complex";
+  stack: string;
+  lang: "en" | "ru";
+}
+
+const COMPLEXITY_OPTIONS = [
+  { value: "simple",  label: "Simple",  labelRu: "Простой",   desc: "Script, small util, single file" },
+  { value: "medium",  label: "Medium",  labelRu: "Средний",   desc: "Multi-file app, REST API, SPA"   },
+  { value: "complex", label: "Complex", labelRu: "Сложный",   desc: "Full-stack, microservices, ML"   },
+] as const;
+
+const STACK_PRESETS = [
+  "TypeScript / React / Next.js",
+  "Python / FastAPI",
+  "Rust / Axum",
+  "Node.js / Express",
+  "Go",
+  "Solidity / Web3",
+  "React Native",
+  "Plain HTML / CSS / JS",
+];
+
+function ProjectPrefsModal({
+  isRu,
+  onConfirm,
+  onSkip,
+}: {
+  isRu: boolean;
+  onConfirm: (prefs: ProjectPrefs) => void;
+  onSkip: () => void;
+}) {
+  const [complexity, setComplexity] = useState<ProjectPrefs["complexity"]>("medium");
+  const [stack, setStack] = useState("TypeScript / React / Next.js");
+  const [customStack, setCustomStack] = useState("");
+  const [lang, setLang] = useState<"en" | "ru">(isRu ? "ru" : "en");
+
+  const finalStack = customStack.trim() || stack;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl border border-[--border] bg-[--surface] shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-[--border]">
+          <Zap className="w-3.5 h-3.5 text-[--accent]" />
+          <span className="text-xs font-mono font-bold text-[--foreground]">
+            {isRu ? "Настройки проекта" : "Project Preferences"}
+          </span>
+        </div>
+
+        <div className="px-4 py-4 flex flex-col gap-4">
+          {/* Complexity */}
+          <div className="flex flex-col gap-2">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-[--muted]">
+              {isRu ? "Сложность" : "Complexity"}
+            </label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {COMPLEXITY_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setComplexity(opt.value)}
+                  className={cn(
+                    "flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl border text-[10px] font-mono transition-all",
+                    complexity === opt.value
+                      ? "border-[--accent] bg-[--accent-dim] text-[--accent]"
+                      : "border-[--border] text-[--muted] hover:border-[--accent]/50 hover:text-[--foreground]"
+                  )}
+                >
+                  <span className="font-semibold text-[11px]">{isRu ? opt.labelRu : opt.label}</span>
+                  <span className="opacity-70 text-center leading-tight">{opt.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Stack */}
+          <div className="flex flex-col gap-2">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-[--muted]">
+              {isRu ? "Технологии" : "Tech Stack"}
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {STACK_PRESETS.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => { setStack(s); setCustomStack(""); }}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg border text-[10px] font-mono transition-all",
+                    stack === s && !customStack
+                      ? "border-[--accent] bg-[--accent-dim] text-[--accent]"
+                      : "border-[--border] text-[--muted] hover:border-[--accent]/50 hover:text-[--foreground]"
+                  )}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+            <input
+              value={customStack}
+              onChange={(e) => setCustomStack(e.target.value)}
+              placeholder={isRu ? "Или введи свой стек…" : "Or type your own stack…"}
+              className="w-full bg-[--surface-raised] border border-[--border] rounded-lg px-3 py-2 text-xs font-mono text-[--foreground] outline-none focus:border-[--accent] transition-colors placeholder:text-[--muted]"
+            />
+          </div>
+
+          {/* Code language */}
+          <div className="flex flex-col gap-2">
+            <label className="text-[10px] font-mono uppercase tracking-widest text-[--muted]">
+              {isRu ? "Язык объяснений" : "Explanation Language"}
+            </label>
+            <div className="flex gap-2">
+              {(["en", "ru"] as const).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => setLang(l)}
+                  className={cn(
+                    "flex-1 py-2 rounded-xl border text-xs font-mono font-bold transition-all",
+                    lang === l
+                      ? "border-[--accent] bg-[--accent-dim] text-[--accent]"
+                      : "border-[--border] text-[--muted] hover:border-[--accent]/50"
+                  )}
+                >
+                  {l === "en" ? "English" : "Русский"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={onSkip}
+              className="px-4 py-2 rounded-xl border border-[--border] text-xs font-mono text-[--muted] hover:text-[--foreground] hover:border-[--accent]/50 transition-colors"
+            >
+              {isRu ? "Пропустить" : "Skip"}
+            </button>
+            <button
+              onClick={() => onConfirm({ complexity, stack: finalStack, lang })}
+              className="flex-1 py-2 rounded-xl bg-[--accent] text-xs font-mono font-bold transition-colors hover:bg-[--accent-hover]"
+              style={{ color: "var(--on-accent)" }}
+            >
+              {isRu ? "Начать разработку" : "Start Building"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── History helpers ───────────────────────────────────────────────────────────
 
 function codeStorageKey(userId: string) {
@@ -997,10 +1166,17 @@ function ChatPane({
           </div>
         ) : (
           <>
-            {messages.map((msg) => (
-              <MsgBubble key={msg.id} msg={msg} />
-            ))}
-            {isStreaming && <GenerationProgress fileCount={activeFiles.length} />}
+            {messages.map((msg, idx) => {
+              // During streaming: skip rendering the last (in-progress) assistant message —
+              // GenerationProgress below takes its place, exactly like v0 does.
+              const isLastAssistantStreaming =
+                isStreaming &&
+                msg.role === "assistant" &&
+                idx === messages.length - 1;
+              if (isLastAssistantStreaming) return null;
+              return <MsgBubble key={msg.id} msg={msg} />;
+            })}
+            {isStreaming && <GenerationProgress fileCount={activeFiles.length} liveFiles={activeFiles} />}
             <div ref={bottomRef} />
           </>
         )}
@@ -1049,6 +1225,7 @@ function ChatPane({
 
 export function CodeEditorPanel() {
   const userId = useUserId();
+  const { lang } = useLang();
   const { messages, sendMessage, status, setMessages } = useChat({
     transport: new DefaultChatTransport({ api: "/api/code" }),
   });
@@ -1057,6 +1234,8 @@ export function CodeEditorPanel() {
   const [mobileTab, setMobileTab] = useState<"chat" | "code">("chat");
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectName, setProjectName] = useState("my-project");
+  const [showPrefs, setShowPrefs] = useState(false);
+  const [pendingMsg, setPendingMsg] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isStreaming = status === "streaming" || status === "submitted";
@@ -1117,13 +1296,45 @@ export function CodeEditorPanel() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const sendWithPrefs = useCallback((text: string, prefs?: ProjectPrefs) => {
+    let finalText = text;
+    if (prefs) {
+      finalText =
+        `[Project context — complexity: ${prefs.complexity}, stack: ${prefs.stack}, ` +
+        `explain in: ${prefs.lang === "ru" ? "Russian" : "English"}]\n\n${text}`;
+    }
+    sendMessage({ text: finalText });
+  }, [sendMessage]);
+
   const submit = () => {
     const trimmed = input.trim();
     if (!trimmed || isStreaming) return;
     setInput("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
-    sendMessage({ text: trimmed });
+    // Show prefs modal only on the very first message of a fresh session
+    if (messages.length === 0) {
+      setPendingMsg(trimmed);
+      setShowPrefs(true);
+    } else {
+      sendWithPrefs(trimmed);
+    }
   };
+
+  const handlePrefsConfirm = useCallback((prefs: ProjectPrefs) => {
+    setShowPrefs(false);
+    if (pendingMsg) {
+      sendWithPrefs(pendingMsg, prefs);
+      setPendingMsg(null);
+    }
+  }, [pendingMsg, sendWithPrefs]);
+
+  const handlePrefsSkip = useCallback(() => {
+    setShowPrefs(false);
+    if (pendingMsg) {
+      sendWithPrefs(pendingMsg);
+      setPendingMsg(null);
+    }
+  }, [pendingMsg, sendWithPrefs]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -1146,6 +1357,14 @@ export function CodeEditorPanel() {
   };
 
   return (
+    <>
+    {showPrefs && (
+      <ProjectPrefsModal
+        isRu={lang === "ru"}
+        onConfirm={handlePrefsConfirm}
+        onSkip={handlePrefsSkip}
+      />
+    )}
     <div className="flex flex-col h-full overflow-hidden">
       {/* ── MOBILE: tab switcher ─────────────────────────────────────── */}
       <div className="flex md:hidden border-b border-[--border] bg-[--surface] shrink-0">
